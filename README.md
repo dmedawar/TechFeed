@@ -41,6 +41,11 @@ You can run the whole stack on free tiers: **Netlify** (static hosting and build
 
 Optional: `VITE_BRAND_LOGO_URL` and `VITE_GITHUB_ACTIONS_INGEST_URL` — see `.env.example`.
 
+## Debug (local only)
+
+- **Ingest:** Run `npm run ingest` on your machine (not GitHub Actions). With `CI` / `GITHUB_ACTIONS` unset, the script prints `[TechFeed ingest:debug]` lines: per-feed newest `published_at`, lane totals, and the top rows before upsert. To mute: `TECHFEED_SILENCE_DEBUG=1 npm run ingest`.
+- **Browser / API:** Run `npm run dev` and open DevTools → **Console**. Filter for `[TechFeed feed:debug]` to see each Supabase query (`publishedAfter` / `publishedBefore`, row counts, newest row on the page) and cache hits. Production (`npm run build`) strips these calls.
+
 ## If articles look weeks old
 
 The UI reads **only** from Supabase when `VITE_*` keys are set; it does not crawl RSS in the browser. Stale dates almost always mean **ingest is not updating the database** (missing or wrong GitHub Action secrets, workflow failures, or migrations not applied). After fixing ingest, use **Reload from database** in the app (or widen the date filter to **All time**). If `VITE_SUPABASE_*` is missing on Netlify, the yellow banner appears and you only see static sample rows — add those env vars and redeploy.

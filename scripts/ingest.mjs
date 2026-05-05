@@ -22,6 +22,24 @@ if (!url || !key) {
   process.exit(1)
 }
 
+/** Verbose RSS / merge diagnostics in your terminal when running ingest locally. Suppressed on GitHub Actions (`CI` / `GITHUB_ACTIONS`). Set `TECHFEED_SILENCE_DEBUG=1` to mute locally. */
+const ingestDebugEnabled =
+  process.env.TECHFEED_SILENCE_DEBUG !== '1' &&
+  process.env.CI !== 'true' &&
+  process.env.GITHUB_ACTIONS !== 'true'
+
+function ingestDebug(...args) {
+  if (ingestDebugEnabled) console.log('[TechFeed ingest:debug]', ...args)
+}
+
+function newestPublishedAtIn(rows) {
+  let best = ''
+  for (const r of rows) {
+    if (r.published_at && r.published_at > best) best = r.published_at
+  }
+  return best || null
+}
+
 const supabase = createClient(url, key)
 
 const INGEST_USER_AGENT =
@@ -89,6 +107,14 @@ async function ingestAnthropicNewsroom() {
         published_at: new Date(t).toISOString(),
       })
     }
+    let newestPub = null
+    for (const r of rows) {
+      if (!newestPub || r.published_at > newestPub) newestPub = r.published_at
+    }
+    ingestDebug('anthropic-newsroom', {
+      rowCount: rows.length,
+      newestPublishedAt: newestPub,
+    })
   } catch (e) {
     console.warn('Anthropic newsroom:', /** @type {Error} */ (e).message)
   }
@@ -381,6 +407,11 @@ async function ingestProgramming(languageSlugs) {
       )
     }
   }
+  ingestDebug('programming', {
+    totalRows: out.length,
+    slugCount: languageSlugs.length,
+    newestPublishedAt: newestPublishedAtIn(out),
+  })
   return out
 }
 
@@ -391,9 +422,11 @@ async function ingestFixedSectionFeeds(specs) {
   /** @type {NonNullable<ReturnType<typeof normalizeItem>>[]} */
   const out = []
   for (const spec of specs) {
+    const before = out.length
     try {
       const feed = await parser.parseURL(spec.url)
-      for (const item of takeNewestFeedItems(feed, 150)) {
+      const slice = takeNewestFeedItems(feed, 150)
+      for (const item of slice) {
         const row = normalizeItem(
           item,
           /** @type {'ai'|'tech'|'general'|'programming'|'integrations'} */ (
@@ -405,6 +438,19 @@ async function ingestFixedSectionFeeds(specs) {
         )
         if (row) out.push(row)
       }
+      const added = out.length - before
+      const top = slice[0]
+      const topPub = top
+        ? publishedAtFromItemAndFeed(top, feed)
+        : null
+      ingestDebug('fixed-section', {
+        section: spec.section,
+        source: spec.source,
+        rawItemCount: feed.items?.length ?? 0,
+        normalizedAdded: added,
+        newestItemPub: topPub,
+        feedUpdated: feed.updated ?? feed.lastBuildDate ?? null,
+      })
     } catch (e) {
       console.warn(
         `Fixed-section feed failed (${spec.url}):`,
@@ -419,14 +465,24 @@ async function ingestDedicated(feedList, section, tagFn) {
   /** @type {NonNullable<ReturnType<typeof normalizeItem>>[]} */
   const out = []
   for (const src of feedList) {
+    const before = out.length
     try {
       const feed = await parser.parseURL(src.url)
-      for (const item of takeNewestFeedItems(feed, 120)) {
+      const slice = takeNewestFeedItems(feed, 120)
+      for (const item of slice) {
         const text = `${item.title ?? ''} ${item.contentSnippet ?? ''}`
         const tags = tagFn(text)
         const row = normalizeItem(item, section, tags, src.source, feed)
         if (row) out.push(row)
       }
+      const top = slice[0]
+      ingestDebug('dedicated', {
+        section,
+        source: src.source,
+        rawItemCount: feed.items?.length ?? 0,
+        normalizedAdded: out.length - before,
+        newestItemPub: top ? publishedAtFromItemAndFeed(top, feed) : null,
+      })
     } catch (e) {
       console.warn(`Feed failed (${src.url}):`, /** @type {Error} */ (e).message)
     }
@@ -438,9 +494,11 @@ async function ingestRoutedTechVerge(integrationMap) {
   /** @type {NonNullable<ReturnType<typeof normalizeItem>>[]} */
   const out = []
   for (const src of ROUTED_SOURCE_FEEDS) {
+    const before = out.length
     try {
       const feed = await parser.parseURL(src.url)
-      for (const item of takeNewestFeedItems(feed, 120)) {
+      const slice = takeNewestFeedItems(feed, 120)
+      for (const item of slice) {
         const text = `${item.title ?? ''} ${item.contentSnippet ?? ''}`
         const iTags = detectIntegrationTags(text, integrationMap)
         let section = 'tech'
@@ -456,6 +514,13 @@ async function ingestRoutedTechVerge(integrationMap) {
         const row = normalizeItem(item, section, tags, src.source, feed)
         if (row) out.push(row)
       }
+      const top = slice[0]
+      ingestDebug('routed-tech', {
+        source: src.source,
+        rawItemCount: feed.items?.length ?? 0,
+        normalizedAdded: out.length - before,
+        newestItemPub: top ? publishedAtFromItemAndFeed(top, feed) : null,
+      })
     } catch (e) {
       console.warn(`Tech feed failed (${src.url}):`, /** @type {Error} */ (e).message)
     }
@@ -597,16 +662,27 @@ async function ingestRedditDiscovery(integrationMap) {
     await sleep(pauseMs)
   }
 
-  return [...byUrl.values()]
+  const redditRows = [...byUrl.values()]
+  let redditNewest = null
+  for (const r of redditRows) {
+    if (!redditNewest || r.published_at > redditNewest) redditNewest = r.published_at
+  }
+  ingestDebug('reddit-discovery', {
+    uniqueUrls: redditRows.length,
+    newestPublishedAt: redditNewest,
+  })
+  return redditRows
 }
 
 async function ingestIntegrationFeeds(integrationMap) {
   /** @type {NonNullable<ReturnType<typeof normalizeItem>>[]} */
   const out = []
   for (const src of INTEGRATION_EXTRA_FEEDS) {
+    const before = out.length
     try {
       const feed = await parser.parseURL(src.url)
-      for (const item of takeNewestFeedItems(feed, 100)) {
+      const slice = takeNewestFeedItems(feed, 100)
+      for (const item of slice) {
         const text = `${item.title ?? ''} ${item.contentSnippet ?? ''}`
         let tags = detectIntegrationTags(text, integrationMap)
         if (!tags.length && src.source.includes('GitHub')) tags = ['github']
@@ -616,6 +692,13 @@ async function ingestIntegrationFeeds(integrationMap) {
         const row = normalizeItem(item, 'integrations', uniq(tags), src.source, feed)
         if (row) out.push(row)
       }
+      const top = slice[0]
+      ingestDebug('integrations', {
+        source: src.source,
+        rawItemCount: feed.items?.length ?? 0,
+        normalizedAdded: out.length - before,
+        newestItemPub: top ? publishedAtFromItemAndFeed(top, feed) : null,
+      })
     } catch (e) {
       console.warn(
         `Integration feed failed (${src.url}):`,
@@ -623,6 +706,10 @@ async function ingestIntegrationFeeds(integrationMap) {
       )
     }
   }
+  ingestDebug('programming', {
+    totalRows: out.length,
+    slugs: languageSlugs.length,
+  })
   return out
 }
 
@@ -634,6 +721,10 @@ async function upsertRows(rows) {
   }
   const batch = [...dedup.values()]
   const chunkSize = 80
+  ingestDebug('upsert', {
+    uniqueByUrl: batch.length,
+    chunkCount: Math.ceil(batch.length / chunkSize) || 0,
+  })
   for (let i = 0; i < batch.length; i += chunkSize) {
     const slice = batch.slice(i, i + chunkSize)
     const { error } = await supabase.from('feed_items').upsert(slice, {
@@ -645,6 +736,18 @@ async function upsertRows(rows) {
 }
 
 async function main() {
+  let supabaseHost = '(invalid url)'
+  try {
+    supabaseHost = new URL(url).hostname
+  } catch {
+    /* ignore */
+  }
+  ingestDebug('start', {
+    enabled: ingestDebugEnabled,
+    supabaseHost,
+    node: process.version,
+  })
+
   console.log('Fetching custom topics…')
   const customs = await fetchCustomTopics()
 
@@ -686,6 +789,33 @@ async function main() {
     ...redditRows,
     ...anthropicNewsRows,
   ]
+
+  ingestDebug('lane summary (pre-dedupe merge)', {
+    ai: { n: aiRows.length, newest: newestPublishedAtIn(aiRows) },
+    programming: { n: progRows.length, newest: newestPublishedAtIn(progRows) },
+    routedTech: { n: routedRows.length, newest: newestPublishedAtIn(routedRows) },
+    integrations: { n: integRows.length, newest: newestPublishedAtIn(integRows) },
+    fixedGeneralEtc: { n: fixedRows.length, newest: newestPublishedAtIn(fixedRows) },
+    aiBreaking: { n: aiBreakingRows.length, newest: newestPublishedAtIn(aiBreakingRows) },
+    reddit: { n: redditRows.length, newest: newestPublishedAtIn(redditRows) },
+    anthropic: { n: anthropicNewsRows.length, newest: newestPublishedAtIn(anthropicNewsRows) },
+    mergedTotal: merged.length,
+  })
+
+  const mergedSorted = [...merged].sort(
+    (a, b) =>
+      Date.parse(b.published_at || '') - Date.parse(a.published_at || ''),
+  )
+  ingestDebug(
+    'newest 8 rows (merged, before URL dedupe in upsert)',
+    mergedSorted.slice(0, 8).map((r) => ({
+      published_at: r.published_at,
+      section: r.section,
+      source_name: r.source_name,
+      title: r.title.slice(0, 80),
+    })),
+  )
+
   console.log(`Upserting ${merged.length} items…`)
   const n = await upsertRows(merged)
   console.log(`Done. ${n} unique URLs processed.`)

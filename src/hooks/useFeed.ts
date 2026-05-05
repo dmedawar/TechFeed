@@ -5,6 +5,7 @@ import {
   filterItemsByPublishedBounds,
   type PublishedBounds,
 } from '@/lib/dateRangeFilter'
+import { feedDebug } from '@/lib/feedDebug'
 import {
   feedLaneKey,
   invalidateFeedLane,
@@ -57,6 +58,13 @@ export function useFeed(params: {
       const merged = mergeDedupeSort(dbData, seed)
       const first = merged.slice(0, PAGE_SIZE)
       mergedTailRef.current = merged.slice(PAGE_SIZE)
+      feedDebug('applyMerged', {
+        dbRowCount: dbData.length,
+        seedRowCount: seed.length,
+        mergedTotal: merged.length,
+        topPublishedAt: first[0]?.published_at ?? null,
+        supabaseConfigured: isSupabaseConfigured,
+      })
       setItems(first)
       const moreFromMerge = mergedTailRef.current.length > 0
       const moreFromDb = dbData.length === PAGE_SIZE
@@ -81,9 +89,16 @@ export function useFeed(params: {
       setHasMore(true)
 
       if (cached?.dbFirstPage?.length) {
+        feedDebug('resetAndLoad cache hit', {
+          laneKey,
+          cachedRows: cached.dbFirstPage.length,
+          cacheAgeMs: Date.now() - cached.savedAt,
+          cacheSavedAt: new Date(cached.savedAt).toISOString(),
+        })
         applyMerged(cached.dbFirstPage)
         setLoading(false)
       } else {
+        feedDebug('resetAndLoad no cache', { laneKey, skipCache })
         setLoading(true)
       }
 
@@ -104,10 +119,20 @@ export function useFeed(params: {
         })
 
         if (err) {
+          feedDebug('resetAndLoad fetch error', {
+            message: err.message,
+            laneKey,
+          })
           invalidateFeedLane(laneKey)
           applyMerged([])
           return
         }
+
+        feedDebug('resetAndLoad fetch ok', {
+          laneKey,
+          dbFirstPageRows: dbData.length,
+          hadCache,
+        })
 
         const reconciled = reconcileFeedPage(cached?.dbFirstPage, dbData)
         applyMerged(reconciled)
@@ -177,6 +202,12 @@ export function useFeed(params: {
       setLoadingMore(false)
       return
     }
+    feedDebug('loadMore page', {
+      from,
+      to,
+      batchSize: data.length,
+      batchNewest: data[0]?.published_at,
+    })
     setItems((prev) => {
       const seen = new Set(prev.map((p) => p.url))
       const out = [...prev]

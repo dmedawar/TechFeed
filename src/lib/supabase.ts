@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { feedDebug } from '@/lib/feedDebug'
 import type { CustomTopicRow, FeedItemRow } from '@/types'
 
 const url = import.meta.env.VITE_SUPABASE_URL
@@ -18,6 +19,10 @@ export async function fetchFeedPage(params: {
   to: number
 }) {
   if (!supabase) {
+    feedDebug('fetchFeedPage', {
+      result: 'NOT_CONFIGURED',
+      params,
+    })
     return {
       data: [] as FeedItemRow[],
       error: new Error('NOT_CONFIGURED'),
@@ -38,6 +43,10 @@ export async function fetchFeedPage(params: {
 
   if (params.section === 'programming' || params.section === 'integrations') {
     if (!params.tagFilter?.length) {
+      feedDebug('fetchFeedPage', {
+        result: 'empty (no tags for section)',
+        section: params.section,
+      })
       return { data: [], error: null }
     }
     q = q.overlaps('tags', params.tagFilter)
@@ -49,8 +58,29 @@ export async function fetchFeedPage(params: {
     .range(params.from, params.to)
 
   const { data, error } = await q
-  if (error) return { data: [], error: new Error(error.message) }
-  return { data: (data ?? []) as FeedItemRow[], error: null }
+  const rows = (data ?? []) as FeedItemRow[]
+  if (error) {
+    feedDebug('fetchFeedPage', {
+      result: 'error',
+      message: error.message,
+      params,
+    })
+    return { data: [], error: new Error(error.message) }
+  }
+  feedDebug('fetchFeedPage', {
+    result: 'ok',
+    rowCount: rows.length,
+    range: [params.from, params.to],
+    newestPublishedAt: rows[0]?.published_at ?? null,
+    oldestOnPage: rows[rows.length - 1]?.published_at ?? null,
+    params: {
+      section: params.section,
+      publishedAfter: params.publishedAfter,
+      publishedBefore: params.publishedBefore,
+      tagFilter: params.tagFilter,
+    },
+  })
+  return { data: rows, error: null }
 }
 
 export async function fetchCustomTopics() {
