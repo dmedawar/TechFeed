@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { DateRangeFilter } from '@/components/DateRangeFilter'
 import {
@@ -18,6 +18,7 @@ import {
   type TopicChip,
 } from '@/lib/constants'
 import { useFeed } from '@/hooks/useFeed'
+import { useLaunchIngest } from '@/hooks/useLaunchIngest'
 import { useTopicChips } from '@/hooks/useTopicChips'
 import type { FeedSection } from '@/types'
 
@@ -66,6 +67,21 @@ export default function App() {
     dateBounds,
   })
 
+  useLaunchIngest(feed.reload)
+
+  const reloadRef = useRef(feed.reload)
+  useEffect(() => {
+    reloadRef.current = feed.reload
+  }, [feed.reload])
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void reloadRef.current()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
+
   const chips = useMemo(() => {
     if (section === 'programming') return programmingChips
     if (section === 'integrations') return integrationChips
@@ -84,7 +100,7 @@ export default function App() {
       if (hasActiveDateFilter(dateBounds)) {
         return 'Nothing in this date range. Try “All time” or a wider window — or confirm ingest is populating Supabase.'
       }
-      return 'No articles in Supabase for this view. Run the GitHub Action “Ingest RSS feeds” (repo secrets: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY), or npm run ingest locally, then tap “Reload from database” above.'
+      return 'No articles in Supabase for this view yet. The site triggers a background ingest on load (Netlify function); wait a few seconds and tap “Reload from database”, or run the GitHub Action / npm run ingest if functions are not deployed.'
     }
     if (section === 'programming' || section === 'integrations') {
       if (!resolvedTagFilter?.length) {

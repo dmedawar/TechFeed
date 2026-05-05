@@ -1,6 +1,6 @@
 # The 1916 Company Tech Feed
 
-Curated AI, tech, and engineering feed backed by Supabase, with RSS ingest (GitHub Actions) and a Vite + React + Tailwind UI.
+Curated AI, tech, and engineering feed backed by Supabase, with RSS ingest (Netlify background function on site load + optional GitHub Actions schedule) and a Vite + React + Tailwind UI.
 
 ## Setup
 
@@ -22,7 +22,11 @@ npm run build
 npm run ingest
 ```
 
-Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The workflow in `.github/workflows/ingest.yml` runs every four hours (plus manual dispatch). Ingest includes the [Anthropic newsroom](https://www.anthropic.com/news) (HTML list; no public RSS), Google News 24h slices for major AI brands (in the **AI** section), and RSS sources. The **General** lane is limited to platform newsrooms and technology-scoped aggregators (no broad “top stories” or world-politics feeds).
+Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Each run **upserts** by `url` (new or updated rows overwrite older data for the same link). After upsert, rows older than **`FEED_RETENTION_DAYS`** (default **60**) are **deleted** so the table stays a bounded cache.
+
+The workflow in `.github/workflows/ingest.yml` runs every four hours (plus manual dispatch). The **live site** also `POST`s `/.netlify/functions/ingest-background` once on load (throttled, see Netlify env below) so the team does not depend only on GitHub.
+
+Ingest includes the [Anthropic newsroom](https://www.anthropic.com/news) (HTML list; no public RSS), Google News 24h slices for major AI brands (in the **AI** section), and RSS sources. The **General** lane is limited to platform newsrooms and technology-scoped aggregators (no broad “top stories” or world-politics feeds).
 
 ## Deploy to Netlify ($0)
 
@@ -32,14 +36,27 @@ You can run the whole stack on free tiers: **Netlify** (static hosting and build
 2. In [Netlify](https://www.netlify.com/), sign up with GitHub and choose **Add new site** → **Import an existing project** → pick this repo.
 3. Netlify reads `netlify.toml` automatically: build command `npm ci && npm run build`, publish directory `dist`.
 4. Under **Site configuration** → **Environment variables**, add (for **Production** and **Deploy previews**):
-  - `VITE_SUPABASE_URL` — your Supabase project URL
-  - `VITE_SUPABASE_ANON_KEY` — your Supabase anon (public) key  
-   These are baked in at build time; trigger **Deploys** → **Trigger deploy** → **Clear cache and deploy site** after changing them.
-5. Deploy. Netlify gives you a URL like `https://something.netlify.app` to share with your team. Custom domains on Netlify are included on the free plan.
 
-**Backend and ingest (still $0):** Keep using a free Supabase project. For scheduled ingest, add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in GitHub (**Settings** → **Secrets and variables** → **Actions**); the workflow in `.github/workflows/ingest.yml` runs on a cron without paid infrastructure.
+   **Build-time (Vite — safe to expose in the client bundle):**
+   - `VITE_SUPABASE_URL` — Supabase project URL (`https://….supabase.co`)
+   - `VITE_SUPABASE_ANON_KEY` — publishable / anon key  
+   - Optional: `VITE_INGEST_TRIGGER_SECRET` — if you set `INGEST_TRIGGER_SECRET` below, use the **same** value so the browser can call the ingest function
+   - Optional: `VITE_NETLIFY_INGEST_URL` — full URL to the function if not same-origin
 
-Optional: `VITE_BRAND_LOGO_URL` and `VITE_GITHUB_ACTIONS_INGEST_URL` — see `.env.example`.
+   **Runtime (Netlify Functions only — never `VITE_*`):**
+   - `SUPABASE_URL` — same project URL
+   - `SUPABASE_SERVICE_ROLE_KEY` — service role key (ingest writes/prunes the table)
+   - Optional: `INGEST_TRIGGER_SECRET` — if set, requests must send header `x-techfeed-ingest-secret` (and the matching `VITE_INGEST_TRIGGER_SECRET` in the client)
+   - Optional: `INGEST_THROTTLE_MINUTES` — default `12`; skip starting a new ingest if `feed_items` was updated more recently (use `?force=1` on the function URL to bypass when testing)
+   - Optional: `FEED_RETENTION_DAYS` — default `60` (prune `published_at` older than this many days)
+
+   After changing `VITE_*`, trigger **Deploys** → **Clear cache and deploy site**.
+
+5. Deploy. Netlify serves the static app and bundles `netlify/functions/ingest-background.mjs` (see `netlify.toml` `included_files` for `scripts/**`).
+
+**Scheduled ingest (optional):** Add GitHub secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; `.github/workflows/ingest.yml` still runs on a cron.
+
+Other optional Vite vars: `VITE_BRAND_LOGO_URL`, `VITE_GITHUB_ACTIONS_INGEST_URL` — see `.env.example`.
 
 ## Debug (local only)
 

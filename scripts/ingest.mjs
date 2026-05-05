@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { createClient } from '@supabase/supabase-js'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 import Parser from 'rss-parser'
 import {
   AI_BREAKING_GOOGLE_NEWS_FEEDS,
@@ -14,13 +16,8 @@ import {
   buildRedditDiscoveryTrust,
 } from './feeds.config.mjs'
 
-const url = process.env.SUPABASE_URL
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!url || !key) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
-  process.exit(1)
-}
+/** Set in `main()` / `runIngest()` before any DB or fetch work. */
+let supabase
 
 /** Verbose RSS / merge diagnostics in your terminal when running ingest locally. Suppressed on GitHub Actions (`CI` / `GITHUB_ACTIONS`). Set `TECHFEED_SILENCE_DEBUG=1` to mute locally. */
 const ingestDebugEnabled =
@@ -39,8 +36,6 @@ function newestPublishedAtIn(rows) {
   }
   return best || null
 }
-
-const supabase = createClient(url, key)
 
 const INGEST_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 TechFeed/1.0 (+https://github.com/dmedawar/TechFeed)'
@@ -706,9 +701,9 @@ async function ingestIntegrationFeeds(integrationMap) {
       )
     }
   }
-  ingestDebug('programming', {
+  ingestDebug('integrations-lane', {
     totalRows: out.length,
-    slugs: languageSlugs.length,
+    newestPublishedAt: newestPublishedAtIn(out),
   })
   return out
 }
@@ -735,7 +730,38 @@ async function upsertRows(rows) {
   return batch.length
 }
 
+/**
+ * Keep the table as a bounded cache (default 60 days by `FEED_RETENTION_DAYS`).
+ */
+async function pruneFeedItemsRetention() {
+  const raw = process.env.FEED_RETENTION_DAYS ?? '60'
+  const days = Number.parseInt(raw, 10)
+  if (!Number.isFinite(days) || days < 1) {
+    console.warn('FEED_RETENTION_DAYS invalid; skipping prune')
+    return
+  }
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString()
+  const { error, count } = await supabase
+    .from('feed_items')
+    .delete({ count: 'exact' })
+    .lt('published_at', cutoff)
+  if (error) {
+    console.warn('Retention prune failed:', error.message)
+    return
+  }
+  console.log(
+    `Retention prune: removed items with published_at before ${cutoff} (~${days}d window); deleted count: ${count ?? '?'}`,
+  )
+}
+
 async function main() {
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+  }
+  supabase = createClient(url, key)
+
   let supabaseHost = '(invalid url)'
   try {
     supabaseHost = new URL(url).hostname
@@ -819,9 +845,21 @@ async function main() {
   console.log(`Upserting ${merged.length} items…`)
   const n = await upsertRows(merged)
   console.log(`Done. ${n} unique URLs processed.`)
+  await pruneFeedItemsRetention()
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+/** Programmatic entry (e.g. Netlify background function). Sets env before calling. */
+export async function runIngest() {
+  await main()
+}
+
+const invokedAsCli =
+  path.resolve(fileURLToPath(import.meta.url)) ===
+  path.resolve(process.argv[1] ?? '')
+
+if (invokedAsCli) {
+  main().catch((err) => {
+    console.error(err?.message ?? err)
+    process.exit(1)
+  })
+}

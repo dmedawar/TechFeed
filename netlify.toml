@@ -5,6 +5,12 @@
 [build.environment]
   NODE_VERSION = "22"
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  # RSS ingest imports live under scripts/ — include for the serverless bundle.
+  included_files = ["scripts/**"]
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
