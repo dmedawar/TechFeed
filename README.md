@@ -24,9 +24,9 @@ npm run ingest
 
 Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Each run **upserts** by `url` (new or updated rows overwrite older data for the same link). After upsert, rows older than **`FEED_RETENTION_DAYS`** (default **60**) are **deleted** so the table stays a bounded cache.
 
-**Schedule:** `.github/workflows/ingest.yml` runs **every 4 hours** UTC (`0 */4 * * *`), plus **workflow_dispatch** for manual runs. Add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` under **Settings → Secrets and variables → Actions**.
+**Schedule:** `.github/workflows/ingest.yml` runs **every 4 hours** UTC on **weekdays** (`0 */4 * * 1-5`), **every 8 hours** on **weekends** (`0 */8 * * 0,6`; Sat–Sun in UTC), plus **workflow_dispatch** for manual runs. Add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` under **Settings → Secrets and variables → Actions**.
 
-**GitHub Actions minutes (private repo):** Free accounts include **2,000 minutes/month**. This workflow runs **6× per day** (~180/month). If each run takes a few minutes, total is typically **well under** the cap. To use less, change the cron to every **6h** (`0 */6 * * *`, 4×/day) or **8h** (`0 */8 * * *`, 3×/day).
+**GitHub Actions minutes (private repo):** Free accounts include **2,000 minutes/month**. That schedule is about **36 runs/week** (~**156/month**), still typically **well under** the cap if each run is a few minutes.
 
 Ingest includes the [Anthropic newsroom](https://www.anthropic.com/news) (HTML list; no public RSS), Google News 24h slices for major AI brands (in the **AI** section), and RSS sources. The **General** lane is limited to platform newsrooms and technology-scoped aggregators (no broad “top stories” or world-politics feeds).
 
