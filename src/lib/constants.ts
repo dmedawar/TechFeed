@@ -24,15 +24,15 @@ export const SECTION_META: Record<
   },
   general: {
     label: 'General',
-    description: 'Platform newsrooms & tech-scoped headlines (no general politics)',
+    description: 'Platform newsrooms & tech-scoped headlines',
   },
   programming: {
     label: 'Programming',
-    description: 'Languages and frameworks your teams use',
+    description: 'Languages and frameworks we use',
   },
   integrations: {
     label: 'Integrations',
-    description: 'Platforms in your stack',
+    description: 'Platforms in our stack',
   },
 }
 
