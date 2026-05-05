@@ -2,8 +2,8 @@ name: Ingest RSS feeds
 
 on:
   schedule:
-    # Every 4h UTC — news (Verge, wires, Anthropic) moves faster than 2×/day
-    - cron: "25 */4 * * *"
+    # 6×/day UTC (every 4h). ~180 runs/mo × a few minutes/run stays within typical free private-repo minutes.
+    - cron: "0 */4 * * *"
   workflow_dispatch:
 
 concurrency:

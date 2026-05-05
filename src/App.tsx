@@ -18,7 +18,6 @@ import {
   type TopicChip,
 } from '@/lib/constants'
 import { useFeed } from '@/hooks/useFeed'
-import { useLaunchIngest } from '@/hooks/useLaunchIngest'
 import { useTopicChips } from '@/hooks/useTopicChips'
 import type { FeedSection } from '@/types'
 
@@ -67,8 +66,6 @@ export default function App() {
     dateBounds,
   })
 
-  useLaunchIngest(feed.reload)
-
   const reloadRef = useRef(feed.reload)
   useEffect(() => {
     reloadRef.current = feed.reload
@@ -100,7 +97,7 @@ export default function App() {
       if (hasActiveDateFilter(dateBounds)) {
         return 'Nothing in this date range. Try “All time” or a wider window — or confirm ingest is populating Supabase.'
       }
-      return 'No articles in Supabase for this view yet. The site triggers a background ingest on load (Netlify function); wait a few seconds and tap “Reload from database”, or run the GitHub Action / npm run ingest if functions are not deployed.'
+      return 'No articles in Supabase for this view yet. Ingest runs on a schedule via GitHub Actions (every 4h UTC); wait for the next run or trigger the workflow manually, then tap “Reload from database”. You can also run npm run ingest locally.'
     }
     if (section === 'programming' || section === 'integrations') {
       if (!resolvedTagFilter?.length) {
