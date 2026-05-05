@@ -11,9 +11,7 @@ import {
   DEFAULT_PROGRAMMING_SLUGS,
   FIXED_SECTION_FEEDS,
   INTEGRATION_EXTRA_FEEDS,
-  REDDIT_DISCOVERY_SUBREDDITS,
   ROUTED_SOURCE_FEEDS,
-  buildRedditDiscoveryTrust,
 } from './feeds.config.mjs'
 
 /** Set in `main()` / `runIngest()` before any DB or fetch work. */
@@ -523,152 +521,6 @@ async function ingestRoutedTechVerge(integrationMap) {
   return out
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function normalizeHttpStoryUrl(raw) {
-  try {
-    const u = new URL(String(raw).trim().split('#')[0])
-    if (!/^https?:$/i.test(u.protocol)) return null
-    return u.href
-  } catch {
-    return null
-  }
-}
-
-function publisherLabelFromHost(host, matchedSuffix, suffixToPublisher) {
-  const fromMap = suffixToPublisher.get(matchedSuffix)
-  if (fromMap) return fromMap
-  const base = host.replace(/^www\./i, '').split('.')[0] || host
-  return base.charAt(0).toUpperCase() + base.slice(1)
-}
-
-/**
- * Scan public subreddit JSON for external URLs whose hosts match configured / trusted
- * publishers. Reddit is not stored as a source; rows use the article publisher as
- * `source_name` and merge with RSS via URL upsert.
- *
- * @param {Record<string, string[]>} integrationMap
- */
-async function ingestRedditDiscovery(integrationMap) {
-  const {
-    trustedSuffixesSorted,
-    suffixToPublisher,
-    blockedHostSuffixes,
-    blockedExactHosts,
-  } = buildRedditDiscoveryTrust()
-
-  /** @param {string} h normalized host */
-  function isHardBlockedHost(h) {
-    if (blockedExactHosts.has(h)) return true
-    for (const suf of blockedHostSuffixes) {
-      if (h === suf || h.endsWith('.' + suf)) return true
-    }
-    return false
-  }
-
-  /** @param {string} h normalized host */
-  function matchedTrustedSuffix(h) {
-    if (isHardBlockedHost(h)) return null
-    for (const suf of trustedSuffixesSorted) {
-      if (h === suf || h.endsWith('.' + suf)) return suf
-    }
-    return null
-  }
-
-  /** @type {Map<string, { title: string, url: string, summary: string | null, thumbnail_url: string | null, section: string, tags: string[], source_name: string, published_at: string }>} */
-  const byUrl = new Map()
-  const maxTotal = 220
-  const perSubLimit = 38
-  const pauseMs = 1300
-
-  for (const sub of REDDIT_DISCOVERY_SUBREDDITS) {
-    if (byUrl.size >= maxTotal) break
-    try {
-      const listingUrl = `https://www.reddit.com/r/${encodeURIComponent(sub)}/new.json?limit=${perSubLimit}&raw_json=1`
-      const res = await fetch(listingUrl, {
-        headers: { 'User-Agent': `${INGEST_USER_AGENT} reddit-discovery/0.1` },
-      })
-      if (!res.ok) {
-        console.warn(`Reddit discovery r/${sub}: HTTP ${res.status}`)
-        continue
-      }
-      /** @type {{ data?: { children?: { data?: Record<string, unknown> }[] } }} */
-      const json = await res.json()
-      const children = json?.data?.children ?? []
-      for (const child of children) {
-        if (byUrl.size >= maxTotal) break
-        const d = child.data
-        if (!d || d.is_self) continue
-        const rawUrl = d.url
-        if (typeof rawUrl !== 'string' || !rawUrl.trim()) continue
-        const href = normalizeHttpStoryUrl(rawUrl)
-        if (!href) continue
-        let host
-        try {
-          host = new URL(href).hostname.replace(/^www\./i, '').toLowerCase()
-        } catch {
-          continue
-        }
-        const suf = matchedTrustedSuffix(host)
-        if (!suf) continue
-        const title = stripHtml(String(d.title ?? '')).slice(0, 500)
-        if (!title) continue
-        const created = d.created_utc
-        const t =
-          typeof created === 'number'
-            ? created
-            : typeof created === 'string'
-              ? Number.parseFloat(created)
-              : NaN
-        if (!Number.isFinite(t)) continue
-        const published_at = new Date(t * 1000).toISOString()
-        const text = title
-        const iTags = detectIntegrationTags(text, integrationMap)
-        let section = 'tech'
-        /** @type {string[]} */
-        let tags = []
-        if (iTags.length) {
-          section = 'integrations'
-          tags = iTags
-        } else if (detectAi(text)) {
-          section = 'ai'
-          tags = ['ai-signal']
-        }
-        const row = {
-          title,
-          url: href,
-          summary: null,
-          thumbnail_url: faviconForLink(href),
-          section,
-          tags: uniq(tags),
-          source_name: publisherLabelFromHost(host, suf, suffixToPublisher),
-          published_at,
-        }
-        if (!byUrl.has(row.url)) byUrl.set(row.url, row)
-      }
-    } catch (e) {
-      console.warn(
-        `Reddit discovery r/${sub}:`,
-        /** @type {Error} */ (e).message,
-      )
-    }
-    await sleep(pauseMs)
-  }
-
-  const redditRows = [...byUrl.values()]
-  let redditNewest = null
-  for (const r of redditRows) {
-    if (!redditNewest || r.published_at > redditNewest) redditNewest = r.published_at
-  }
-  ingestDebug('reddit-discovery', {
-    uniqueUrls: redditRows.length,
-    newestPublishedAt: redditNewest,
-  })
-  return redditRows
-}
-
 async function ingestIntegrationFeeds(integrationMap) {
   /** @type {NonNullable<ReturnType<typeof normalizeItem>>[]} */
   const out = []
@@ -792,7 +644,6 @@ async function main() {
     integRows,
     fixedRows,
     aiBreakingRows,
-    redditRows,
     anthropicNewsRows,
   ] = await Promise.all([
     ingestDedicated(AI_FEEDS, 'ai', (_text) => ['ai-signal']),
@@ -801,7 +652,6 @@ async function main() {
     ingestIntegrationFeeds(integrationMap),
     ingestFixedSectionFeeds(FIXED_SECTION_FEEDS),
     ingestFixedSectionFeeds(AI_BREAKING_GOOGLE_NEWS_FEEDS),
-    ingestRedditDiscovery(integrationMap),
     ingestAnthropicNewsroom(),
   ])
 
@@ -812,7 +662,6 @@ async function main() {
     ...integRows,
     ...fixedRows,
     ...aiBreakingRows,
-    ...redditRows,
     ...anthropicNewsRows,
   ]
 
@@ -823,7 +672,6 @@ async function main() {
     integrations: { n: integRows.length, newest: newestPublishedAtIn(integRows) },
     fixedGeneralEtc: { n: fixedRows.length, newest: newestPublishedAtIn(fixedRows) },
     aiBreaking: { n: aiBreakingRows.length, newest: newestPublishedAtIn(aiBreakingRows) },
-    reddit: { n: redditRows.length, newest: newestPublishedAtIn(redditRows) },
     anthropic: { n: anthropicNewsRows.length, newest: newestPublishedAtIn(anthropicNewsRows) },
     mergedTotal: merged.length,
   })
