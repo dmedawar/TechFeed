@@ -22,7 +22,7 @@ npm run build
 npm run ingest
 ```
 
-Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The workflow in `.github/workflows/ingest.yml` runs on a schedule.
+Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The workflow in `.github/workflows/ingest.yml` runs every four hours (plus manual dispatch). Ingest includes the [Anthropic newsroom](https://www.anthropic.com/news) (HTML list; no public RSS), Google News 24h slices for major AI brands (so Reuters/Bloomberg/CNBC-style coverage surfaces in the **AI** section), and the usual RSS sources.
 
 ## Deploy to Netlify ($0)
 

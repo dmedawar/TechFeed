@@ -10,6 +10,8 @@ export const AI_FEEDS = [
 export const TECH_FEEDS = [
   { url: 'https://techcrunch.com/feed/', source: 'TechCrunch' },
   { url: 'https://www.theverge.com/rss/index.xml', source: 'The Verge' },
+  /** Mirrors theverge.com/news (some posts only appear here). */
+  { url: 'https://www.theverge.com/rss/news/index.xml', source: 'The Verge · News' },
   { url: 'https://www.wired.com/feed/rss', source: 'Wired' },
   { url: 'https://www.engadget.com/rss.xml', source: 'Engadget' },
   { url: 'https://www.cnet.com/rss/news/', source: 'CNET · News' },
@@ -128,6 +130,12 @@ export const GENERAL_SECTION_FEEDS = [
     tags: ['google-news'],
   },
   {
+    url: 'https://news.google.com/rss/search?q=Reuters+OR+Bloomberg+OR+CNBC+when:1d&hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · Wires & finance TV (24h)',
+    section: 'general',
+    tags: ['google-news'],
+  },
+  {
     url: 'https://www.techmeme.com/feed.xml',
     source: 'Techmeme',
     section: 'general',
@@ -237,6 +245,31 @@ export const GENERAL_SECTION_FEEDS = [
   },
 ]
 
+/**
+ * Bursts into the **AI** section (not only General) so wire stories on Anthropic, OpenAI,
+ * etc. show up for people on the AI tab. URLs are often news.google.com redirect links.
+ */
+export const AI_BREAKING_GOOGLE_NEWS_FEEDS = [
+  {
+    url: 'https://news.google.com/rss/search?q=Anthropic+OR+Claude+when:1d&hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · Anthropic & Claude (24h)',
+    section: 'ai',
+    tags: ['ai-signal', 'google-news'],
+  },
+  {
+    url: 'https://news.google.com/rss/search?q=OpenAI+OR+ChatGPT+when:1d&hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · OpenAI (24h)',
+    section: 'ai',
+    tags: ['ai-signal', 'google-news'],
+  },
+  {
+    url: 'https://news.google.com/rss/search?q=Google+DeepMind+OR+Gemini+when:1d&hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · DeepMind & Gemini (24h)',
+    section: 'ai',
+    tags: ['ai-signal', 'google-news'],
+  },
+]
+
 /** Feeds pinned to a single section (TLDR editions + general bundle). */
 export const FIXED_SECTION_FEEDS = [
   ...TLDR_NEWSLETTER_FEEDS,
@@ -321,6 +354,7 @@ export const DEFAULT_INTEGRATION_KEYWORDS = {
 
 export const AI_HINTS = [
   'anthropic',
+  'claude',
   'openai',
   'gpt',
   'llm',

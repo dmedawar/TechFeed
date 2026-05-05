@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js'
 import Parser from 'rss-parser'
 import {
+  AI_BREAKING_GOOGLE_NEWS_FEEDS,
   AI_FEEDS,
   AI_HINTS,
   DEFAULT_INTEGRATION_KEYWORDS,
@@ -40,6 +41,58 @@ function stripHtml(html) {
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function decodeHtmlEntities(s) {
+  return String(s)
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+}
+
+const ANTHROPIC_NEWS_LIST_ITEM_RE =
+  /<a href="(\/news\/[a-z0-9-]+)"[^>]*listItem[^>]*>[\s\S]*?<time[^>]*>([^<]+)<\/time>[\s\S]*?<span[^>]*__title[^>]*>([^<]+)<\/span>\s*<\/a>/gi
+
+async function ingestAnthropicNewsroom() {
+  /** @type {{ title: string, url: string, summary: null, thumbnail_url: string | null, section: string, tags: string[], source_name: string, published_at: string }[]} */
+  const rows = []
+  try {
+    const res = await fetch('https://www.anthropic.com/news', {
+      headers: { 'User-Agent': INGEST_USER_AGENT },
+      redirect: 'follow',
+    })
+    if (!res.ok) {
+      console.warn('Anthropic newsroom: HTTP', res.status)
+      return rows
+    }
+    const html = await res.text()
+    let m
+    ANTHROPIC_NEWS_LIST_ITEM_RE.lastIndex = 0
+    while ((m = ANTHROPIC_NEWS_LIST_ITEM_RE.exec(html)) !== null) {
+      const path = m[1]
+      const dateStr = m[2].trim()
+      const title = decodeHtmlEntities(stripHtml(m[3])).trim().slice(0, 500)
+      const t = Date.parse(dateStr)
+      if (!title || !Number.isFinite(t)) continue
+      const url = `https://www.anthropic.com${path}`
+      rows.push({
+        title,
+        url,
+        summary: null,
+        thumbnail_url: faviconForLink(url),
+        section: 'ai',
+        tags: ['ai-signal'],
+        source_name: 'Anthropic',
+        published_at: new Date(t).toISOString(),
+      })
+    }
+  } catch (e) {
+    console.warn('Anthropic newsroom:', /** @type {Error} */ (e).message)
+  }
+  return rows
 }
 
 function firstImgSrcFromHtml(html) {
@@ -603,15 +656,25 @@ async function main() {
   const integrationMap = buildIntegrationKeywords(customs)
 
   console.log('Ingesting feeds (parallel batches)…')
-  const [aiRows, progRows, routedRows, integRows, fixedRows, redditRows] =
-    await Promise.all([
-      ingestDedicated(AI_FEEDS, 'ai', (_text) => ['ai-signal']),
-      ingestProgramming(languageSlugs),
-      ingestRoutedTechVerge(integrationMap),
-      ingestIntegrationFeeds(integrationMap),
-      ingestFixedSectionFeeds(FIXED_SECTION_FEEDS),
-      ingestRedditDiscovery(integrationMap),
-    ])
+  const [
+    aiRows,
+    progRows,
+    routedRows,
+    integRows,
+    fixedRows,
+    aiBreakingRows,
+    redditRows,
+    anthropicNewsRows,
+  ] = await Promise.all([
+    ingestDedicated(AI_FEEDS, 'ai', (_text) => ['ai-signal']),
+    ingestProgramming(languageSlugs),
+    ingestRoutedTechVerge(integrationMap),
+    ingestIntegrationFeeds(integrationMap),
+    ingestFixedSectionFeeds(FIXED_SECTION_FEEDS),
+    ingestFixedSectionFeeds(AI_BREAKING_GOOGLE_NEWS_FEEDS),
+    ingestRedditDiscovery(integrationMap),
+    ingestAnthropicNewsroom(),
+  ])
 
   const merged = [
     ...aiRows,
@@ -619,7 +682,9 @@ async function main() {
     ...routedRows,
     ...integRows,
     ...fixedRows,
+    ...aiBreakingRows,
     ...redditRows,
+    ...anthropicNewsRows,
   ]
   console.log(`Upserting ${merged.length} items…`)
   const n = await upsertRows(merged)
