@@ -17,7 +17,12 @@ export async function fetchFeedPage(params: {
   from: number
   to: number
 }) {
-  if (!supabase) return { data: [] as FeedItemRow[], error: null as Error | null }
+  if (!supabase) {
+    return {
+      data: [] as FeedItemRow[],
+      error: new Error('NOT_CONFIGURED'),
+    }
+  }
 
   let q = supabase
     .from('feed_items')

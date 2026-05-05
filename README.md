@@ -32,11 +32,15 @@ You can run the whole stack on free tiers: **Netlify** (static hosting and build
 2. In [Netlify](https://www.netlify.com/), sign up with GitHub and choose **Add new site** → **Import an existing project** → pick this repo.
 3. Netlify reads `netlify.toml` automatically: build command `npm ci && npm run build`, publish directory `dist`.
 4. Under **Site configuration** → **Environment variables**, add (for **Production** and **Deploy previews**):
-   - `VITE_SUPABASE_URL` — your Supabase project URL
-   - `VITE_SUPABASE_ANON_KEY` — your Supabase anon (public) key  
+  - `VITE_SUPABASE_URL` — your Supabase project URL
+  - `VITE_SUPABASE_ANON_KEY` — your Supabase anon (public) key  
    These are baked in at build time; trigger **Deploys** → **Trigger deploy** → **Clear cache and deploy site** after changing them.
 5. Deploy. Netlify gives you a URL like `https://something.netlify.app` to share with your team. Custom domains on Netlify are included on the free plan.
 
 **Backend and ingest (still $0):** Keep using a free Supabase project. For scheduled ingest, add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in GitHub (**Settings** → **Secrets and variables** → **Actions**); the workflow in `.github/workflows/ingest.yml` runs on a cron without paid infrastructure.
 
 Optional: `VITE_BRAND_LOGO_URL` and `VITE_GITHUB_ACTIONS_INGEST_URL` — see `.env.example`.
+
+## If articles look weeks old
+
+The UI reads **only** from Supabase when `VITE_*` keys are set; it does not crawl RSS in the browser. Stale dates almost always mean **ingest is not updating the database** (missing or wrong GitHub Action secrets, workflow failures, or migrations not applied). After fixing ingest, use **Reload from database** in the app (or widen the date filter to **All time**). If `VITE_SUPABASE_*` is missing on Netlify, the yellow banner appears and you only see static sample rows — add those env vars and redeploy.

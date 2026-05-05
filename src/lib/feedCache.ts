@@ -2,8 +2,11 @@ import type { PublishedBounds } from '@/lib/dateRangeFilter'
 import type { FeedItemRow } from '@/types'
 
 const STORAGE_ROOT = 'techfeed-feed-cache'
-const SCHEMA_VERSION = 1
+/** Bump to clear all browsers’ cached first pages after feed/merge logic changes. */
+const SCHEMA_VERSION = 2
 const MAX_LANES = 8
+/** Ignore disk cache older than this so a stale first paint cannot sit for days. */
+export const FEED_LANE_TTL_MS = 5 * 60 * 1000
 
 type LaneCache = {
   /** Raw first-page rows from Supabase (range 0..PAGE_SIZE-1), before merge with seed. */
@@ -62,6 +65,7 @@ export function readFeedLane(laneKey: string): LaneCache | null {
   const b = readBlob()
   const lane = b.lanes[laneKey]
   if (!lane?.dbFirstPage?.length) return null
+  if (Date.now() - lane.savedAt > FEED_LANE_TTL_MS) return null
   return lane
 }
 

@@ -75,6 +75,17 @@ export default function App() {
   const selected = selectedForSection ?? new Set<string>()
 
   const emptyHint = useMemo(() => {
+    if (isSupabaseConfigured) {
+      if (section === 'programming' || section === 'integrations') {
+        if (!resolvedTagFilter?.length) {
+          return 'Select one or more topics above to see articles here.'
+        }
+      }
+      if (hasActiveDateFilter(dateBounds)) {
+        return 'Nothing in this date range. Try “All time” or a wider window — or confirm ingest is populating Supabase.'
+      }
+      return 'No articles in Supabase for this view. Run the GitHub Action “Ingest RSS feeds” (repo secrets: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY), or npm run ingest locally, then tap “Reload from database” above.'
+    }
     if (section === 'programming' || section === 'integrations') {
       if (!resolvedTagFilter?.length) {
         return 'Select one or more topics above to see articles here.'
@@ -105,6 +116,24 @@ export default function App() {
     <div className="min-h-screen pb-10">
       <Banner />
 
+      {!isSupabaseConfigured ? (
+        <div
+          role="status"
+          className="border-b border-amber-500/35 bg-amber-500/12 px-5 py-3 text-center text-sm font-medium text-amber-950 dark:text-amber-100"
+        >
+          Live articles are disabled: set{' '}
+          <code className="rounded bg-black/10 px-1 py-0.5 text-xs dark:bg-white/10">
+            VITE_SUPABASE_URL
+          </code>{' '}
+          and{' '}
+          <code className="rounded bg-black/10 px-1 py-0.5 text-xs dark:bg-white/10">
+            VITE_SUPABASE_ANON_KEY
+          </code>{' '}
+          on Netlify (or <code className="text-xs">.env</code> locally), then redeploy. Below is
+          offline sample data only.
+        </div>
+      ) : null}
+
       <DateRangeFilter
         preset={datePreset}
         customFrom={customDateFrom}
@@ -114,18 +143,28 @@ export default function App() {
         onCustomToChange={setCustomDateTo}
       />
 
-      {WORKFLOW_LINK ? (
+      {isSupabaseConfigured ? (
         <div className="sticky top-0 z-40 border-b border-[color:var(--color-line)] bg-[color:var(--color-surface-0)]/88 backdrop-blur-xl">
-          <div className="mx-auto flex max-w-6xl justify-end px-5 py-3 sm:px-8">
-            <a
-              href={WORKFLOW_LINK}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-4 py-2 text-xs font-medium text-accent-bright hover:bg-accent/15"
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-2 px-5 py-3 sm:px-8">
+            <button
+              type="button"
+              onClick={() => void feed.reload()}
+              className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-line)] bg-[color:var(--color-surface-1)] px-4 py-2 text-xs font-medium text-[color:var(--color-ink)] hover:bg-[color:var(--color-surface-2)]"
             >
               <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />
-              Refresh feeds
-            </a>
+              Reload from database
+            </button>
+            {WORKFLOW_LINK ? (
+              <a
+                href={WORKFLOW_LINK}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-4 py-2 text-xs font-medium text-accent-bright hover:bg-accent/15"
+              >
+                <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />
+                Run ingest (GitHub)
+              </a>
+            ) : null}
           </div>
         </div>
       ) : null}

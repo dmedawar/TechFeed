@@ -13,7 +13,7 @@ import {
   writeFeedLane,
 } from '@/lib/feedCache'
 import { mergeDedupeSort } from '@/lib/feedMerge'
-import { fetchFeedPage } from '@/lib/supabase'
+import { fetchFeedPage, isSupabaseConfigured } from '@/lib/supabase'
 import type { FeedItemRow, FeedSection } from '@/types'
 
 export function useFeed(params: {
@@ -52,7 +52,9 @@ export function useFeed(params: {
 
   const applyMerged = useCallback(
     (dbData: FeedItemRow[]) => {
-      const merged = mergeDedupeSort(dbData, seedForView)
+      /** Never blend static demo rows when a real backend is configured — it hid empty/stale DBs. */
+      const seed = isSupabaseConfigured ? [] : seedForView
+      const merged = mergeDedupeSort(dbData, seed)
       const first = merged.slice(0, PAGE_SIZE)
       mergedTailRef.current = merged.slice(PAGE_SIZE)
       setItems(first)
@@ -102,9 +104,8 @@ export function useFeed(params: {
         })
 
         if (err) {
-          if (!cached?.dbFirstPage?.length) {
-            applyMerged([])
-          }
+          invalidateFeedLane(laneKey)
+          applyMerged([])
           return
         }
 
