@@ -12,6 +12,7 @@ export function FeedList({
   hasMore,
   onLoadMore,
   emptyHint,
+  showSectionOnCards = false,
 }: {
   items: FeedItemRow[]
   loading: boolean
@@ -21,6 +22,8 @@ export function FeedList({
   hasMore: boolean
   onLoadMore: () => void
   emptyHint: string
+  /** Show section pill on each card (global search). */
+  showSectionOnCards?: boolean
 }) {
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
@@ -77,7 +80,11 @@ export function FeedList({
         </p>
       ) : null}
       {items.map((item) => (
-        <FeedCard key={item.id} item={item} />
+        <FeedCard
+          key={item.id}
+          item={item}
+          showSection={showSectionOnCards}
+        />
       ))}
       <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
       {loadingMore ? (

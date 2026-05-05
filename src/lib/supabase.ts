@@ -1,5 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { feedDebug } from '@/lib/feedDebug'
+import {
+  GLOBAL_SEARCH_MIN_CHARS,
+  normalizeGlobalSearchQuery,
+} from '@/lib/searchQuery'
 import type { CustomTopicRow, FeedItemRow } from '@/types'
 
 const url = import.meta.env.VITE_SUPABASE_URL
@@ -9,6 +13,81 @@ export const isSupabaseConfigured = Boolean(url && anon)
 
 export const supabase: SupabaseClient | null =
   url && anon ? createClient(url, anon) : null
+
+/** Escape `%`, `_`, and `\` for Postgres `ILIKE` patterns. */
+function escapeIlikePattern(fragment: string): string {
+  return fragment
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_')
+}
+
+export async function fetchFeedSearchPage(params: {
+  search: string
+  publishedAfter: string | null
+  publishedBefore: string | null
+  from: number
+  to: number
+}) {
+  if (!supabase) {
+    feedDebug('fetchFeedSearchPage', {
+      result: 'NOT_CONFIGURED',
+      params,
+    })
+    return {
+      data: [] as FeedItemRow[],
+      error: new Error('NOT_CONFIGURED'),
+    }
+  }
+
+  const normalized = normalizeGlobalSearchQuery(params.search)
+  if (normalized.length < GLOBAL_SEARCH_MIN_CHARS) {
+    feedDebug('fetchFeedSearchPage', {
+      result: 'query_too_short',
+      params,
+    })
+    return { data: [] as FeedItemRow[], error: null }
+  }
+
+  const pattern = `%${escapeIlikePattern(normalized)}%`
+
+  let q = supabase
+    .from('feed_items')
+    .select('*')
+    .or(
+      `title.ilike.${pattern},summary.ilike.${pattern},source_name.ilike.${pattern}`,
+    )
+
+  if (params.publishedAfter) {
+    q = q.gte('published_at', params.publishedAfter)
+  }
+  if (params.publishedBefore) {
+    q = q.lte('published_at', params.publishedBefore)
+  }
+
+  q = q
+    .order('published_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(params.from, params.to)
+
+  const { data, error } = await q
+  const rows = (data ?? []) as FeedItemRow[]
+  if (error) {
+    feedDebug('fetchFeedSearchPage', {
+      result: 'error',
+      message: error.message,
+      params,
+    })
+    return { data: [], error: new Error(error.message) }
+  }
+  feedDebug('fetchFeedSearchPage', {
+    result: 'ok',
+    rowCount: rows.length,
+    range: [params.from, params.to],
+    queryLen: normalized.length,
+  })
+  return { data: rows, error: null }
+}
 
 export async function fetchFeedPage(params: {
   section: FeedItemRow['section']

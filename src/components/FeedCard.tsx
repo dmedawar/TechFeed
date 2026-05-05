@@ -2,6 +2,7 @@ import { formatDistanceToNow } from 'date-fns'
 import clsx from 'clsx'
 import { ExternalLink } from 'lucide-react'
 import { ArticleThumbnail } from '@/components/ArticleThumbnail'
+import { SECTION_META } from '@/lib/constants'
 import { useArticleRead } from '@/hooks/useArticleRead'
 import type { FeedItemRow } from '@/types'
 
@@ -16,7 +17,14 @@ function preview(text: string | null, max = 220) {
   return `${plain.slice(0, max).trim()}…`
 }
 
-export function FeedCard({ item }: { item: FeedItemRow }) {
+export function FeedCard({
+  item,
+  showSection = false,
+}: {
+  item: FeedItemRow
+  /** When true, show feed section (e.g. global search results). */
+  showSection?: boolean
+}) {
   const { isUnread, markOpened } = useArticleRead(item.id)
 
   return (
@@ -44,6 +52,11 @@ export function FeedCard({ item }: { item: FeedItemRow }) {
         </a>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-[color:var(--color-ink-muted)]">
+            {showSection ? (
+              <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-0.5 font-semibold uppercase tracking-wide text-accent-bright">
+                {SECTION_META[item.section].label}
+              </span>
+            ) : null}
             {item.source_name ? (
               <span className="rounded-full bg-[color:var(--app-muted-fill)] px-2 py-0.5 font-medium text-[color:var(--color-ink)]">
                 {item.source_name}

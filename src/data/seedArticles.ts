@@ -1,3 +1,11 @@
+import {
+  filterItemsByPublishedBounds,
+  type PublishedBounds,
+} from '@/lib/dateRangeFilter'
+import {
+  GLOBAL_SEARCH_MIN_CHARS,
+  normalizeGlobalSearchQuery,
+} from '@/lib/searchQuery'
 import type { FeedItemRow } from '@/types'
 
 const iso = (d: string) => new Date(d).toISOString()
@@ -369,4 +377,18 @@ export function getSeedItemsForView(
     )
   }
   return rows
+}
+
+/** Offline sample data: match title, summary, and source across all sections. */
+export function getSeedItemsForGlobalSearch(
+  query: string,
+  dateBounds: PublishedBounds,
+): FeedItemRow[] {
+  const q = normalizeGlobalSearchQuery(query).toLowerCase()
+  if (q.length < GLOBAL_SEARCH_MIN_CHARS) return []
+  const raw = SEED_ARTICLES.filter((item) => {
+    const hay = `${item.title} ${item.summary ?? ''} ${item.source_name ?? ''}`.toLowerCase()
+    return hay.includes(q)
+  })
+  return filterItemsByPublishedBounds(raw, dateBounds)
 }

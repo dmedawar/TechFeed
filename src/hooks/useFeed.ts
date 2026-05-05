@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getSeedItemsForView } from '@/data/seedArticles'
+import {
+  getSeedItemsForGlobalSearch,
+  getSeedItemsForView,
+} from '@/data/seedArticles'
 import { PAGE_SIZE } from '@/lib/constants'
 import {
   filterItemsByPublishedBounds,
@@ -14,14 +17,55 @@ import {
   writeFeedLane,
 } from '@/lib/feedCache'
 import { mergeDedupeSort } from '@/lib/feedMerge'
-import { fetchFeedPage, isSupabaseConfigured } from '@/lib/supabase'
+import {
+  fetchFeedPage,
+  fetchFeedSearchPage,
+  isSupabaseConfigured,
+} from '@/lib/supabase'
+import {
+  GLOBAL_SEARCH_MIN_CHARS,
+  normalizeGlobalSearchQuery,
+} from '@/lib/searchQuery'
 import type { FeedItemRow, FeedSection } from '@/types'
+
+const SEARCH_DEBOUNCE_MS = 300
 
 export function useFeed(params: {
   section: FeedSection
   tagFilter: string[] | null
   dateBounds: PublishedBounds
+  /** Raw search input; trimmed length ≥2 triggers global search (all sections). */
+  globalSearch: string
 }) {
+  const [effectiveSearch, setEffectiveSearch] = useState('')
+  const prevTrimRef = useRef('')
+
+  useEffect(() => {
+    const q = normalizeGlobalSearchQuery(params.globalSearch)
+    if (q.length < GLOBAL_SEARCH_MIN_CHARS) {
+      prevTrimRef.current = q
+      const clearId = window.setTimeout(() => setEffectiveSearch(''), 0)
+      return () => window.clearTimeout(clearId)
+    }
+    const prev = prevTrimRef.current
+    prevTrimRef.current = q
+    if (prev.length < GLOBAL_SEARCH_MIN_CHARS) {
+      const id = window.setTimeout(() => setEffectiveSearch(q), 0)
+      return () => window.clearTimeout(id)
+    }
+    const id = window.setTimeout(() => setEffectiveSearch(q), SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(id)
+  }, [params.globalSearch])
+
+  const inputNormalized = useMemo(
+    () => normalizeGlobalSearchQuery(params.globalSearch),
+    [params.globalSearch],
+  )
+
+  const isGlobalSearch = effectiveSearch.length >= GLOBAL_SEARCH_MIN_CHARS
+  const searchPending =
+    inputNormalized.length >= GLOBAL_SEARCH_MIN_CHARS &&
+    inputNormalized !== effectiveSearch
   const [items, setItems] = useState<FeedItemRow[]>([])
   const [loading, setLoading] = useState(true)
   /** True while revalidating in the background after showing a cached first page. */
@@ -33,23 +77,35 @@ export function useFeed(params: {
   const dbExhaustedRef = useRef(false)
 
   const seedForView = useMemo(() => {
+    if (isGlobalSearch) {
+      return getSeedItemsForGlobalSearch(effectiveSearch, params.dateBounds)
+    }
     const raw = getSeedItemsForView(params.section, params.tagFilter)
     return filterItemsByPublishedBounds(raw, params.dateBounds)
-  }, [params.section, params.tagFilter, params.dateBounds])
+  }, [
+    effectiveSearch,
+    isGlobalSearch,
+    params.dateBounds,
+    params.section,
+    params.tagFilter,
+  ])
 
-  const laneKey = useMemo(
-    () =>
-      feedLaneKey(params.section, params.tagFilter, {
-        publishedAfter: params.dateBounds.publishedAfter,
-        publishedBefore: params.dateBounds.publishedBefore,
-      }),
-    [
-      params.section,
-      params.tagFilter,
-      params.dateBounds.publishedAfter,
-      params.dateBounds.publishedBefore,
-    ],
-  )
+  const laneKey = useMemo(() => {
+    if (isGlobalSearch) {
+      return `search|${effectiveSearch}|${params.dateBounds.publishedAfter ?? ''}|${params.dateBounds.publishedBefore ?? ''}`
+    }
+    return feedLaneKey(params.section, params.tagFilter, {
+      publishedAfter: params.dateBounds.publishedAfter,
+      publishedBefore: params.dateBounds.publishedBefore,
+    })
+  }, [
+    effectiveSearch,
+    isGlobalSearch,
+    params.dateBounds.publishedAfter,
+    params.dateBounds.publishedBefore,
+    params.section,
+    params.tagFilter,
+  ])
 
   const applyMerged = useCallback(
     (dbData: FeedItemRow[]) => {
@@ -109,14 +165,22 @@ export function useFeed(params: {
       const hadCache = Boolean(cached?.dbFirstPage?.length)
       if (hadCache) setRefreshing(true)
       try {
-        const { data: dbData, error: err } = await fetchFeedPage({
-          section: params.section,
-          tagFilter: params.tagFilter,
-          publishedAfter: params.dateBounds.publishedAfter,
-          publishedBefore: params.dateBounds.publishedBefore,
-          from: 0,
-          to: PAGE_SIZE - 1,
-        })
+        const { data: dbData, error: err } = isGlobalSearch
+          ? await fetchFeedSearchPage({
+              search: effectiveSearch,
+              publishedAfter: params.dateBounds.publishedAfter,
+              publishedBefore: params.dateBounds.publishedBefore,
+              from: 0,
+              to: PAGE_SIZE - 1,
+            })
+          : await fetchFeedPage({
+              section: params.section,
+              tagFilter: params.tagFilter,
+              publishedAfter: params.dateBounds.publishedAfter,
+              publishedBefore: params.dateBounds.publishedBefore,
+              from: 0,
+              to: PAGE_SIZE - 1,
+            })
 
         if (err) {
           feedDebug('resetAndLoad fetch error', {
@@ -144,7 +208,15 @@ export function useFeed(params: {
         setLoading(false)
       }
     },
-    [applyMerged, laneKey, params.dateBounds, params.section, params.tagFilter],
+    [
+      applyMerged,
+      effectiveSearch,
+      isGlobalSearch,
+      laneKey,
+      params.dateBounds,
+      params.section,
+      params.tagFilter,
+    ],
   )
 
   const loadMore = useCallback(async () => {
@@ -180,14 +252,22 @@ export function useFeed(params: {
     setLoadingMore(true)
     const from = pageRef.current * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
-    const { data, error: err } = await fetchFeedPage({
-      section: params.section,
-      tagFilter: params.tagFilter,
-      publishedAfter: params.dateBounds.publishedAfter,
-      publishedBefore: params.dateBounds.publishedBefore,
-      from,
-      to,
-    })
+    const { data, error: err } = isGlobalSearch
+      ? await fetchFeedSearchPage({
+          search: effectiveSearch,
+          publishedAfter: params.dateBounds.publishedAfter,
+          publishedBefore: params.dateBounds.publishedBefore,
+          from,
+          to,
+        })
+      : await fetchFeedPage({
+          section: params.section,
+          tagFilter: params.tagFilter,
+          publishedAfter: params.dateBounds.publishedAfter,
+          publishedBefore: params.dateBounds.publishedBefore,
+          from,
+          to,
+        })
     if (err) {
       setHasMore(false)
       setLoadingMore(false)
@@ -223,7 +303,9 @@ export function useFeed(params: {
     setHasMore(data.length === PAGE_SIZE)
     setLoadingMore(false)
   }, [
+    effectiveSearch,
     hasMore,
+    isGlobalSearch,
     loading,
     loadingMore,
     params.dateBounds,
@@ -243,10 +325,12 @@ export function useFeed(params: {
   return {
     items,
     loading,
-    refreshing,
+    refreshing: refreshing || searchPending,
     loadingMore,
     hasMore,
     reload,
     loadMore,
+    isGlobalSearch,
+    effectiveSearch,
   }
 }

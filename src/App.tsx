@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { DateRangeFilter } from '@/components/DateRangeFilter'
+import { GlobalSearchBar } from '@/components/GlobalSearchBar'
 import {
   hasActiveDateFilter,
   toPublishedBounds,
@@ -31,6 +32,7 @@ export default function App() {
   const [datePreset, setDatePreset] = useState<DatePresetId>('30d')
   const [customDateFrom, setCustomDateFrom] = useState('')
   const [customDateTo, setCustomDateTo] = useState('')
+  const [globalSearch, setGlobalSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [modalKind, setModalKind] = useState<
     'language' | 'integration'
@@ -64,6 +66,7 @@ export default function App() {
     section,
     tagFilter: resolvedTagFilter,
     dateBounds,
+    globalSearch,
   })
 
   const reloadRef = useRef(feed.reload)
@@ -88,6 +91,15 @@ export default function App() {
   const selected = selectedForSection ?? new Set<string>()
 
   const emptyHint = useMemo(() => {
+    if (feed.isGlobalSearch) {
+      if (!isSupabaseConfigured) {
+        return 'No offline samples match this search. Try another phrase or clear the search box.'
+      }
+      if (hasActiveDateFilter(dateBounds)) {
+        return 'No matches for this search in the selected date range. Try “All time” or different keywords.'
+      }
+      return 'No articles match this search. Try different keywords or clear the search box.'
+    }
     if (isSupabaseConfigured) {
       if (section === 'programming' || section === 'integrations') {
         if (!resolvedTagFilter?.length) {
@@ -108,7 +120,7 @@ export default function App() {
       return 'Nothing in this date range. Try a wider period or different topics.'
     }
     return 'Nothing matches these filters yet. Try adjusting your selections above.'
-  }, [dateBounds, section, resolvedTagFilter])
+  }, [dateBounds, feed.isGlobalSearch, resolvedTagFilter, section])
 
   const onSavedTopic = useCallback(
     (chip: TopicChip) => {
@@ -156,6 +168,8 @@ export default function App() {
         onCustomToChange={setCustomDateTo}
       />
 
+      <GlobalSearchBar value={globalSearch} onChange={setGlobalSearch} />
+
       {isSupabaseConfigured ? (
         <div className="sticky top-0 z-40 border-b border-[color:var(--color-line)] bg-[color:var(--color-surface-0)]/88 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-2 px-5 py-3 sm:px-8">
@@ -190,7 +204,8 @@ export default function App() {
         }}
       />
 
-      {(section === 'programming' || section === 'integrations') && (
+      {(section === 'programming' || section === 'integrations') &&
+        !feed.isGlobalSearch && (
         <div className="pt-2">
           <TagFilters
             chips={chips}
@@ -216,6 +231,7 @@ export default function App() {
         hasMore={feed.hasMore}
         onLoadMore={feed.loadMore}
         emptyHint={emptyHint}
+        showSectionOnCards={feed.isGlobalSearch}
       />
 
       <AddTopicModal
