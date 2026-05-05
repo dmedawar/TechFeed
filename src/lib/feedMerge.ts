@@ -12,9 +12,10 @@ export function mergeDedupeSort(
   for (const d of dbRows) {
     byUrl.set(d.url, d)
   }
-  return [...byUrl.values()].sort(
-    (a, b) =>
-      new Date(b.published_at).getTime() -
-      new Date(a.published_at).getTime(),
-  )
+  return [...byUrl.values()].sort((a, b) => {
+    const tb = new Date(b.published_at).getTime()
+    const ta = new Date(a.published_at).getTime()
+    if (tb !== ta) return tb - ta
+    return b.id.localeCompare(a.id)
+  })
 }

@@ -22,7 +22,7 @@ export function Banner() {
             className="text-[1.65rem] font-bold tracking-tight text-[color:var(--color-accent-bright)] sm:text-[1.95rem]"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            Tech Feed
+            The 1916 Company Tech Feed
           </h1>
           <p className="mt-2 text-[0.9375rem] font-bold leading-relaxed text-[color:var(--color-ink-muted)] sm:text-base">
             One place to scan what matters across AI, tech, engineering, and

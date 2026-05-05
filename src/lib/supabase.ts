@@ -38,7 +38,10 @@ export async function fetchFeedPage(params: {
     q = q.overlaps('tags', params.tagFilter)
   }
 
-  q = q.order('published_at', { ascending: false }).range(params.from, params.to)
+  q = q
+    .order('published_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(params.from, params.to)
 
   const { data, error } = await q
   if (error) return { data: [], error: new Error(error.message) }
