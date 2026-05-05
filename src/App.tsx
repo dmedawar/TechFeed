@@ -109,7 +109,7 @@ export default function App() {
       if (hasActiveDateFilter(dateBounds)) {
         return 'Nothing in this date range. Try “All time” or a wider window — or confirm ingest is populating Supabase.'
       }
-      return 'No articles in Supabase for this view yet. Ingest runs on a schedule via GitHub Actions (every 4h UTC weekdays, every 8h weekends); wait for the next run or trigger the workflow manually, then tap “Reload from database”. You can also run npm run ingest locally.'
+      return 'No articles in Supabase for this view yet. Ingest runs on a schedule via GitHub Actions (every 4h UTC weekdays, every 8h weekends); wait for the next run, trigger the workflow manually, or refresh the page. You can also run npm run ingest locally.'
     }
     if (section === 'programming' || section === 'integrations') {
       if (!resolvedTagFilter?.length) {
@@ -170,28 +170,18 @@ export default function App() {
 
       <GlobalSearchBar value={globalSearch} onChange={setGlobalSearch} />
 
-      {isSupabaseConfigured ? (
+      {isSupabaseConfigured && WORKFLOW_LINK ? (
         <div className="sticky top-0 z-40 border-b border-[color:var(--color-line)] bg-[color:var(--color-surface-0)]/88 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-end gap-2 px-5 py-3 sm:px-8">
-            <button
-              type="button"
-              onClick={() => void feed.reload()}
-              className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-line)] bg-[color:var(--color-surface-1)] px-4 py-2 text-xs font-medium text-[color:var(--color-ink)] hover:bg-[color:var(--color-surface-2)]"
+            <a
+              href={WORKFLOW_LINK}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-4 py-2 text-xs font-medium text-accent-bright hover:bg-accent/15"
             >
               <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />
-              Reload from database
-            </button>
-            {WORKFLOW_LINK ? (
-              <a
-                href={WORKFLOW_LINK}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-accent/35 bg-accent/10 px-4 py-2 text-xs font-medium text-accent-bright hover:bg-accent/15"
-              >
-                <RefreshCw className="h-3.5 w-3.5" strokeWidth={2} />
-                Run ingest (GitHub)
-              </a>
-            ) : null}
+              Run ingest (GitHub)
+            </a>
           </div>
         </div>
       ) : null}
