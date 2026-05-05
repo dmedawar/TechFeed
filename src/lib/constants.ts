@@ -24,7 +24,7 @@ export const SECTION_META: Record<
   },
   general: {
     label: 'General',
-    description: 'Headlines, Apple & Google news, wires, and broad signal',
+    description: 'Platform newsrooms & tech-scoped headlines (no general politics)',
   },
   programming: {
     label: 'Programming',

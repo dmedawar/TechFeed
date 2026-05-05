@@ -47,8 +47,8 @@ export const TLDR_NEWSLETTER_FEEDS = [
 ]
 
 /**
- * General: Apple Newsroom, Google The Keyword, Google News (topics + recency searches),
- * wires, and high-volume aggregators — not split by AI/tech heuristics.
+ * General: official platform newsrooms, **technology-scoped** Google News queries,
+ * and tech-community aggregators. No broad “home page”, world, or U.S. politics lanes.
  */
 export const GENERAL_SECTION_FEEDS = [
   {
@@ -64,50 +64,14 @@ export const GENERAL_SECTION_FEEDS = [
     tags: ['google'],
   },
   {
-    url: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en',
-    source: 'Google News · Top stories',
-    section: 'general',
-    tags: ['google-news'],
-  },
-  {
     url: 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en',
     source: 'Google News · Technology',
     section: 'general',
     tags: ['google-news'],
   },
   {
-    url: 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en',
-    source: 'Google News · Business',
-    section: 'general',
-    tags: ['google-news'],
-  },
-  {
-    url: 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en',
-    source: 'Google News · World',
-    section: 'general',
-    tags: ['google-news'],
-  },
-  {
-    url: 'https://news.google.com/rss/headlines/section/topic/NATION?hl=en-US&gl=US&ceid=US:en',
-    source: 'Google News · U.S.',
-    section: 'general',
-    tags: ['google-news'],
-  },
-  {
-    url: 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en',
-    source: 'Google News · Science',
-    section: 'general',
-    tags: ['google-news'],
-  },
-  {
     url: 'https://news.google.com/rss/search?q=technology+OR+software+OR+startup+when:7d&hl=en-US&gl=US&ceid=US:en',
     source: 'Google News · Tech pulse (7d)',
-    section: 'general',
-    tags: ['google-news'],
-  },
-  {
-    url: 'https://news.google.com/rss/search?q=breaking+OR+major+announcement+when:3d&hl=en-US&gl=US&ceid=US:en',
-    source: 'Google News · Breaking (3d)',
     section: 'general',
     tags: ['google-news'],
   },
@@ -130,8 +94,8 @@ export const GENERAL_SECTION_FEEDS = [
     tags: ['google-news'],
   },
   {
-    url: 'https://news.google.com/rss/search?q=Reuters+OR+Bloomberg+OR+CNBC+when:1d&hl=en-US&gl=US&ceid=US:en',
-    source: 'Google News · Wires & finance TV (24h)',
+    url: 'https://news.google.com/rss/search?q=(Reuters+OR+Bloomberg+OR+CNBC)+(AI+OR+software+OR+technology+OR+semiconductor+OR+Apple+OR+Microsoft+OR+Google+OR+Amazon+OR+Meta+OR+Nvidia)+when:1d&hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · Wires on tech & platforms (24h)',
     section: 'general',
     tags: ['google-news'],
   },
@@ -140,30 +104,6 @@ export const GENERAL_SECTION_FEEDS = [
     source: 'Techmeme',
     section: 'general',
     tags: ['techmeme'],
-  },
-  {
-    url: 'https://feeds.bbci.co.uk/news/rss.xml',
-    source: 'BBC News · Front page',
-    section: 'general',
-    tags: ['bbc'],
-  },
-  {
-    url: 'https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml',
-    source: 'BBC News · US & Canada',
-    section: 'general',
-    tags: ['bbc'],
-  },
-  {
-    url: 'https://www.pbs.org/newshour/feeds/rss/headlines',
-    source: 'PBS NewsHour · Headlines',
-    section: 'general',
-    tags: ['pbs'],
-  },
-  {
-    url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html',
-    source: 'CNBC · Top news',
-    section: 'general',
-    tags: ['cnbc'],
   },
   {
     url: 'https://rss.slashdot.org/Slashdot/slashdotMain',
@@ -184,64 +124,16 @@ export const GENERAL_SECTION_FEEDS = [
     tags: ['lobsters'],
   },
   {
-    url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
-    source: 'BBC News · World',
-    section: 'general',
-    tags: ['bbc'],
-  },
-  {
-    url: 'https://feeds.bbci.co.uk/news/business/rss.xml',
-    source: 'BBC News · Business',
-    section: 'general',
-    tags: ['bbc'],
-  },
-  {
     url: 'https://feeds.bbci.co.uk/news/technology/rss.xml',
     source: 'BBC News · Technology',
     section: 'general',
     tags: ['bbc'],
   },
   {
-    url: 'https://feeds.reuters.com/reuters/topNews',
-    source: 'Reuters · Top News',
-    section: 'general',
-    tags: ['reuters'],
-  },
-  {
-    url: 'https://feeds.reuters.com/Reuters/worldNews',
-    source: 'Reuters · World',
-    section: 'general',
-    tags: ['reuters'],
-  },
-  {
-    url: 'https://feeds.reuters.com/reuters/businessNews',
-    source: 'Reuters · Business',
-    section: 'general',
-    tags: ['reuters'],
-  },
-  {
-    url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml',
-    source: 'The New York Times · Home Page',
+    url: 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml',
+    source: 'The New York Times · Technology',
     section: 'general',
     tags: ['nyt'],
-  },
-  {
-    url: 'https://www.theguardian.com/world/rss',
-    source: 'The Guardian · World',
-    section: 'general',
-    tags: ['guardian'],
-  },
-  {
-    url: 'https://www.theguardian.com/us-news/rss',
-    source: 'The Guardian · U.S.',
-    section: 'general',
-    tags: ['guardian'],
-  },
-  {
-    url: 'https://feeds.npr.org/1001/rss.xml',
-    source: 'NPR · News',
-    section: 'general',
-    tags: ['npr'],
   },
 ]
 

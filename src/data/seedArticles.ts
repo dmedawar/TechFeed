@@ -321,7 +321,7 @@ export const SEED_ARTICLES: FeedItemRow[] = [
     title: 'Headlines and platform news land in General after ingest runs',
     url: 'https://news.google.com/',
     summary:
-      'This section aggregates Apple Newsroom, Google News, The Keyword, wires, and community links. Run npm run ingest to populate live items.',
+      'Apple & Google newsrooms, technology-topic Google News, Techmeme, HN, and other tech-scoped sources—no broad world or politics homepages. Run ingest to populate live items.',
     thumbnail_url: null,
     section: 'general',
     tags: ['google-news'],
@@ -344,10 +344,10 @@ export const SEED_ARTICLES: FeedItemRow[] = [
   },
   {
     id: 'seed-gen-3',
-    title: 'Wires and recency-biased Google News searches improve “last few days” coverage',
+    title: 'Wire tech desks and recency-biased searches stay scoped to platforms & engineering',
     url: 'https://www.reuters.com/',
     summary:
-      'Reuters, BBC, Guardian, NPR, Reddit, and HN feeds complement topic pages; dates are parsed from Atom/RSS fields when available.',
+      'General avoids undifferentiated “top stories”; wires in this lane are query-scoped (e.g. tech + big tech). Reuters & Guardian tech desks also flow through the Tech section.',
     thumbnail_url: null,
     section: 'general',
     tags: ['reuters'],
