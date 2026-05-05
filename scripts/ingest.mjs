@@ -21,10 +21,11 @@ if (!url || !key) {
 
 const supabase = createClient(url, key)
 const parser = new Parser({
-  timeout: 20000,
+  timeout: 45000,
   headers: {
-    'User-Agent': 'TechFeedIngest/1.0 (+https://example.invalid)',
-    Accept: 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8',
+    Accept: 'application/rss+xml, application/xml, application/atom+xml, text/xml;q=0.9, */*;q=0.8',
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 TechFeed/1.0 (+https://github.com/dmedawar/TechFeed)',
   },
 })
 
@@ -123,11 +124,25 @@ function faviconForLink(link) {
   }
 }
 
-function publishedAt(item) {
-  const d = item.isoDate || item.pubDate || item.date
-  if (!d) return new Date().toISOString()
-  const t = Date.parse(d)
-  return Number.isFinite(t) ? new Date(t).toISOString() : new Date().toISOString()
+/** Best-effort parse; skips items with no usable date (avoids falsely “today” timestamps). */
+function publishedAtIso(item) {
+  const it = /** @type {Record<string, unknown>} */ (item)
+  const candidates = [
+    item.isoDate,
+    item.pubDate,
+    item.date,
+    it.updated,
+    it.published,
+    it['dc:date'],
+    it['atom:updated'],
+  ]
+  for (const c of candidates) {
+    if (c == null || c === '') continue
+    const s = typeof c === 'string' ? c : String(c)
+    const t = Date.parse(s)
+    if (Number.isFinite(t)) return new Date(t).toISOString()
+  }
+  return null
 }
 
 function uniq(arr) {
@@ -176,7 +191,7 @@ function detectIntegrationTags(text, integrationMap) {
 
 /**
  * @param {import('rss-parser').Item} item
- * @param {'ai'|'tech'|'programming'|'integrations'} section
+ * @param {'ai'|'tech'|'general'|'programming'|'integrations'} section
  * @param {string[]} tags
  * @param {string} sourceName
  */
@@ -194,6 +209,8 @@ function normalizeItem(item, section, tags, sourceName) {
             ? item.id
             : ''
   if (!title || !link) return null
+  const published = publishedAtIso(item)
+  if (!published) return null
   const summary =
     stripHtml(item.contentSnippet || item.summary || item.content || '').slice(
       0,
@@ -207,7 +224,7 @@ function normalizeItem(item, section, tags, sourceName) {
     section,
     tags,
     source_name: sourceName,
-    published_at: publishedAt(item),
+    published_at: published,
   }
 }
 
@@ -241,10 +258,12 @@ async function ingestFixedSectionFeeds(specs) {
   for (const spec of specs) {
     try {
       const feed = await parser.parseURL(spec.url)
-      for (const item of feed.items.slice(0, 100)) {
+      for (const item of feed.items.slice(0, 130)) {
         const row = normalizeItem(
           item,
-          /** @type {'ai'|'tech'|'programming'|'integrations'} */ (spec.section),
+          /** @type {'ai'|'tech'|'general'|'programming'|'integrations'} */ (
+            spec.section
+          ),
           spec.tags,
           spec.source,
         )
@@ -266,7 +285,7 @@ async function ingestDedicated(feedList, section, tagFn) {
   for (const src of feedList) {
     try {
       const feed = await parser.parseURL(src.url)
-      for (const item of feed.items.slice(0, 100)) {
+      for (const item of feed.items.slice(0, 110)) {
         const text = `${item.title ?? ''} ${item.contentSnippet ?? ''}`
         const tags = tagFn(text)
         const row = normalizeItem(item, section, tags, src.source)
@@ -285,7 +304,7 @@ async function ingestRoutedTechVerge(integrationMap) {
   for (const src of ROUTED_SOURCE_FEEDS) {
     try {
       const feed = await parser.parseURL(src.url)
-      for (const item of feed.items.slice(0, 100)) {
+      for (const item of feed.items.slice(0, 110)) {
         const text = `${item.title ?? ''} ${item.contentSnippet ?? ''}`
         const iTags = detectIntegrationTags(text, integrationMap)
         let section = 'tech'
@@ -314,7 +333,7 @@ async function ingestIntegrationFeeds(integrationMap) {
   for (const src of INTEGRATION_EXTRA_FEEDS) {
     try {
       const feed = await parser.parseURL(src.url)
-      for (const item of feed.items.slice(0, 72)) {
+      for (const item of feed.items.slice(0, 90)) {
         const text = `${item.title ?? ''} ${item.contentSnippet ?? ''}`
         let tags = detectIntegrationTags(text, integrationMap)
         if (!tags.length && src.source.includes('GitHub')) tags = ['github']

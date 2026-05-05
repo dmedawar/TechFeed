@@ -5,6 +5,7 @@ export const PAGE_SIZE = 12
 export const SECTION_ORDER: FeedSection[] = [
   'ai',
   'tech',
+  'general',
   'programming',
   'integrations',
 ]
@@ -20,6 +21,10 @@ export const SECTION_META: Record<
   tech: {
     label: 'Tech',
     description: 'Industry news that affects roadmaps',
+  },
+  general: {
+    label: 'General',
+    description: 'Headlines, Apple & Google news, wires, and broad signal',
   },
   programming: {
     label: 'Programming',

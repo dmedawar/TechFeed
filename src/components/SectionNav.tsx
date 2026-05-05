@@ -24,7 +24,7 @@ export function SectionNav({
             type="button"
             onClick={() => onChange(id)}
             className={clsx(
-              'group flex min-w-[9.5rem] flex-1 flex-col items-start rounded-2xl border px-4 py-3 text-left transition-all sm:min-w-0 sm:flex-none',
+              'group flex min-w-[7.75rem] flex-1 flex-col items-start rounded-2xl border px-3 py-3 text-left transition-all sm:min-w-[8.5rem] sm:flex-none sm:px-4',
               isActive
                 ? 'border-accent/40 bg-accent/10 shadow-[0_0_0_1px_rgba(198,167,107,0.18)]'
                 : 'border-[color:var(--color-line)] bg-[color:var(--color-surface-2)]/60 hover:border-accent/25 hover:bg-[color:var(--color-surface-2)]',

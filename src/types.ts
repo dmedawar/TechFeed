@@ -1,4 +1,9 @@
-export type FeedSection = 'ai' | 'tech' | 'programming' | 'integrations'
+export type FeedSection =
+  | 'ai'
+  | 'tech'
+  | 'general'
+  | 'programming'
+  | 'integrations'
 
 export type TopicKind = 'language' | 'integration'
 

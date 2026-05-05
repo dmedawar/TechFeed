@@ -12,11 +12,8 @@ export const TECH_FEEDS = [
   { url: 'https://www.wired.com/feed/rss', source: 'Wired' },
 ]
 
-/**
- * Official Google blogs (The Keyword + Developers). Routed by ingest heuristics into AI / tech / integrations.
- */
-export const GOOGLE_OFFICIAL_FEEDS = [
-  { url: 'https://blog.google/rss.xml', source: 'Google · The Keyword' },
+/** Google Developers Blog only — routed into AI / tech / integrations by heuristics. */
+export const GOOGLE_DEVELOPERS_FEEDS = [
   {
     url: 'https://developers.googleblog.com/feeds/posts/default?alt=rss',
     source: 'Google Developers Blog',
@@ -42,54 +39,168 @@ export const TLDR_NEWSLETTER_FEEDS = [
   },
 ]
 
-/** Apple Newsroom Atom feed (official Apple company news; not the Apple News reader app). */
-export const APPLE_NEWSROOM_FEEDS = [
+/**
+ * General: Apple Newsroom, Google The Keyword, Google News (topics + recency searches),
+ * wires, and high-volume aggregators — not split by AI/tech heuristics.
+ */
+export const GENERAL_SECTION_FEEDS = [
   {
     url: 'https://www.apple.com/newsroom/rss-feed.rss',
     source: 'Apple Newsroom',
-    section: 'tech',
+    section: 'general',
     tags: ['apple', 'apple-newsroom'],
   },
-]
-
-/** Feeds pinned to a single feed section (TLDR editions, Apple Newsroom, …). */
-export const FIXED_SECTION_FEEDS = [
-  ...TLDR_NEWSLETTER_FEEDS,
-  ...APPLE_NEWSROOM_FEEDS,
-]
-
-/**
- * Google News RSS (topic + search). Aggregates many publishers; complements direct feeds.
- * @see https://news.google.com/rss (undocumented but widely used URL shapes)
- */
-export const GOOGLE_NEWS_FEEDS = [
+  {
+    url: 'https://blog.google/rss.xml',
+    source: 'Google · The Keyword',
+    section: 'general',
+    tags: ['google'],
+  },
+  {
+    url: 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · Top stories',
+    section: 'general',
+    tags: ['google-news'],
+  },
   {
     url: 'https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=en-US&gl=US&ceid=US:en',
     source: 'Google News · Technology',
+    section: 'general',
+    tags: ['google-news'],
+  },
+  {
+    url: 'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · Business',
+    section: 'general',
+    tags: ['google-news'],
+  },
+  {
+    url: 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · World',
+    section: 'general',
+    tags: ['google-news'],
+  },
+  {
+    url: 'https://news.google.com/rss/headlines/section/topic/NATION?hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · U.S.',
+    section: 'general',
+    tags: ['google-news'],
   },
   {
     url: 'https://news.google.com/rss/headlines/section/topic/SCIENCE?hl=en-US&gl=US&ceid=US:en',
     source: 'Google News · Science',
+    section: 'general',
+    tags: ['google-news'],
   },
   {
-    url: 'https://news.google.com/rss/search?q=artificial+intelligence+OR+machine+learning+OR+LLM&hl=en-US&gl=US&ceid=US:en',
-    source: 'Google News · AI & ML',
+    url: 'https://news.google.com/rss/search?q=technology+OR+software+OR+startup+when:7d&hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · Tech pulse (7d)',
+    section: 'general',
+    tags: ['google-news'],
   },
   {
-    url: 'https://news.google.com/rss/search?q=enterprise+software+OR+cloud+computing+OR+cybersecurity&hl=en-US&gl=US&ceid=US:en',
-    source: 'Google News · Enterprise & cloud',
+    url: 'https://news.google.com/rss/search?q=breaking+OR+major+announcement+when:3d&hl=en-US&gl=US&ceid=US:en',
+    source: 'Google News · Breaking (3d)',
+    section: 'general',
+    tags: ['google-news'],
   },
-]
-
-/** Wire services and national outlets — high-trust general / tech desks */
-export const CREDIBLE_WIRE_FEEDS = [
   {
-    url: 'https://feeds.reuters.com/reuters/technologyNews',
-    source: 'Reuters · Technology',
+    url: 'https://hnrss.org/frontpage',
+    source: 'Hacker News · Front page',
+    section: 'general',
+    tags: ['hackernews'],
+  },
+  {
+    url: 'https://lobste.rs/rss',
+    source: 'Lobsters',
+    section: 'general',
+    tags: ['lobsters'],
+  },
+  {
+    url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
+    source: 'BBC News · World',
+    section: 'general',
+    tags: ['bbc'],
+  },
+  {
+    url: 'https://feeds.bbci.co.uk/news/business/rss.xml',
+    source: 'BBC News · Business',
+    section: 'general',
+    tags: ['bbc'],
   },
   {
     url: 'https://feeds.bbci.co.uk/news/technology/rss.xml',
     source: 'BBC News · Technology',
+    section: 'general',
+    tags: ['bbc'],
+  },
+  {
+    url: 'https://feeds.reuters.com/reuters/topNews',
+    source: 'Reuters · Top News',
+    section: 'general',
+    tags: ['reuters'],
+  },
+  {
+    url: 'https://feeds.reuters.com/Reuters/worldNews',
+    source: 'Reuters · World',
+    section: 'general',
+    tags: ['reuters'],
+  },
+  {
+    url: 'https://feeds.reuters.com/reuters/businessNews',
+    source: 'Reuters · Business',
+    section: 'general',
+    tags: ['reuters'],
+  },
+  {
+    url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml',
+    source: 'The New York Times · Home Page',
+    section: 'general',
+    tags: ['nyt'],
+  },
+  {
+    url: 'https://www.theguardian.com/world/rss',
+    source: 'The Guardian · World',
+    section: 'general',
+    tags: ['guardian'],
+  },
+  {
+    url: 'https://www.theguardian.com/us-news/rss',
+    source: 'The Guardian · U.S.',
+    section: 'general',
+    tags: ['guardian'],
+  },
+  {
+    url: 'https://www.reddit.com/r/news/.rss',
+    source: 'Reddit · r/news',
+    section: 'general',
+    tags: ['reddit'],
+  },
+  {
+    url: 'https://www.reddit.com/r/technology/.rss',
+    source: 'Reddit · r/technology',
+    section: 'general',
+    tags: ['reddit'],
+  },
+  {
+    url: 'https://feeds.npr.org/1001/rss.xml',
+    source: 'NPR · News',
+    section: 'general',
+    tags: ['npr'],
+  },
+]
+
+/** Feeds pinned to a single section (TLDR editions + general bundle). */
+export const FIXED_SECTION_FEEDS = [
+  ...TLDR_NEWSLETTER_FEEDS,
+  ...GENERAL_SECTION_FEEDS,
+]
+
+/** Wire / tech desks — still routed for AI vs tech vs integrations */
+export const CREDIBLE_WIRE_FEEDS = [
+  {
+    url: 'https://feeds.reuters.com/reuters/technologyNews',
+    source: 'Reuters · Technology',
   },
   {
     url: 'https://www.theguardian.com/technology/rss',
@@ -108,12 +219,11 @@ export const LINKEDIN_OFFICIAL_FEEDS = [
   },
 ]
 
-/** All feeds passed through AI / tech / integrations routing (title + body heuristics) */
+/** Routed feeds — heuristics assign AI / tech / integrations */
 export const ROUTED_SOURCE_FEEDS = [
   ...TECH_FEEDS,
-  ...GOOGLE_OFFICIAL_FEEDS,
+  ...GOOGLE_DEVELOPERS_FEEDS,
   ...CREDIBLE_WIRE_FEEDS,
-  ...GOOGLE_NEWS_FEEDS,
   ...LINKEDIN_OFFICIAL_FEEDS,
 ]
 

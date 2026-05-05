@@ -3,6 +3,7 @@ import {
   AppWindow,
   Brain,
   Code2,
+  Globe2,
   Layers,
   Newspaper,
   PlugZap,
@@ -23,6 +24,8 @@ export function SectionGlyph({
       return <Brain {...props} />
     case 'tech':
       return <Newspaper {...props} />
+    case 'general':
+      return <Globe2 {...props} />
     case 'programming':
       return <Code2 {...props} />
     case 'integrations':

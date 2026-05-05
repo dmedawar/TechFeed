@@ -316,6 +316,45 @@ export const SEED_ARTICLES: FeedItemRow[] = [
     published_at: iso('2026-04-07T15:50:00Z'),
     created_at: iso('2026-04-07T15:50:00Z'),
   },
+  {
+    id: 'seed-gen-1',
+    title: 'Headlines and platform news land in General after ingest runs',
+    url: 'https://news.google.com/',
+    summary:
+      'This section aggregates Apple Newsroom, Google News, The Keyword, wires, and community links. Run npm run ingest to populate live items.',
+    thumbnail_url: null,
+    section: 'general',
+    tags: ['google-news'],
+    source_name: 'Tech Feed',
+    published_at: iso('2026-04-28T12:00:00Z'),
+    created_at: iso('2026-04-28T12:00:00Z'),
+  },
+  {
+    id: 'seed-gen-2',
+    title: 'Apple Newsroom and Google top stories stay in one scan-friendly lane',
+    url: 'https://www.apple.com/newsroom/',
+    summary:
+      'Official Apple announcements and Google’s broad news products surface here so Tech stays focused on industry analysis.',
+    thumbnail_url: null,
+    section: 'general',
+    tags: ['apple'],
+    source_name: 'Tech Feed',
+    published_at: iso('2026-04-26T10:00:00Z'),
+    created_at: iso('2026-04-26T10:00:00Z'),
+  },
+  {
+    id: 'seed-gen-3',
+    title: 'Wires and recency-biased Google News searches improve “last few days” coverage',
+    url: 'https://www.reuters.com/',
+    summary:
+      'Reuters, BBC, Guardian, NPR, Reddit, and HN feeds complement topic pages; dates are parsed from Atom/RSS fields when available.',
+    thumbnail_url: null,
+    section: 'general',
+    tags: ['reuters'],
+    source_name: 'Tech Feed',
+    published_at: iso('2026-04-24T09:00:00Z'),
+    created_at: iso('2026-04-24T09:00:00Z'),
+  },
 ]
 
 export function getSeedItemsForView(
