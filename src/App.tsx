@@ -27,7 +27,7 @@ const WORKFLOW_LINK = import.meta.env.VITE_GITHUB_ACTIONS_INGEST_URL as
 
 export default function App() {
   const [section, setSection] = useState<FeedSection>('ai')
-  /** Default 30d: a 7d window hides everything if ingest lag is ~10–14 days. */
+  /** Default last 30 days (matches ingest `FEED_RETENTION_DAYS` default). */
   const [datePreset, setDatePreset] = useState<DatePresetId>('30d')
   const [customDateFrom, setCustomDateFrom] = useState('')
   const [customDateTo, setCustomDateTo] = useState('')

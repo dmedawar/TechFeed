@@ -582,13 +582,30 @@ async function upsertRows(rows) {
   return batch.length
 }
 
+/** Same window as prune: only ingest rows with `published_at` in the last N days. */
+function feedRetentionDaysOrNull() {
+  const raw = process.env.FEED_RETENTION_DAYS ?? '30'
+  const days = Number.parseInt(raw, 10)
+  if (!Number.isFinite(days) || days < 1) return null
+  return days
+}
+
+function filterRowsByPublishedRecency(rows, retentionDays) {
+  const cutoffMs = Date.now() - retentionDays * 86400000
+  const out = []
+  for (const r of rows) {
+    const t = Date.parse(r.published_at || '')
+    if (Number.isFinite(t) && t >= cutoffMs) out.push(r)
+  }
+  return out
+}
+
 /**
- * Keep the table as a bounded cache (default 60 days by `FEED_RETENTION_DAYS`).
+ * Keep the table as a bounded cache (default 30 days by `FEED_RETENTION_DAYS`).
  */
 async function pruneFeedItemsRetention() {
-  const raw = process.env.FEED_RETENTION_DAYS ?? '60'
-  const days = Number.parseInt(raw, 10)
-  if (!Number.isFinite(days) || days < 1) {
+  const days = feedRetentionDaysOrNull()
+  if (days == null) {
     console.warn('FEED_RETENTION_DAYS invalid; skipping prune')
     return
   }
@@ -690,8 +707,22 @@ async function main() {
     })),
   )
 
-  console.log(`Upserting ${merged.length} items…`)
-  const n = await upsertRows(merged)
+  const retentionDays = feedRetentionDaysOrNull()
+  const mergedForUpsert =
+    retentionDays == null
+      ? merged
+      : filterRowsByPublishedRecency(merged, retentionDays)
+  if (
+    retentionDays != null &&
+    mergedForUpsert.length < merged.length
+  ) {
+    console.log(
+      `Skipping ${merged.length - mergedForUpsert.length} items with published_at older than ${retentionDays}d`,
+    )
+  }
+
+  console.log(`Upserting ${mergedForUpsert.length} items…`)
+  const n = await upsertRows(mergedForUpsert)
   console.log(`Done. ${n} unique URLs processed.`)
   await pruneFeedItemsRetention()
 }

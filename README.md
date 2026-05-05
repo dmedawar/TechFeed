@@ -22,7 +22,7 @@ npm run build
 npm run ingest
 ```
 
-Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Each run **upserts** by `url` (new or updated rows overwrite older data for the same link). After upsert, rows older than **`FEED_RETENTION_DAYS`** (default **60**) are **deleted** so the table stays a bounded cache.
+Requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Each run **upserts** by `url` (new or updated rows overwrite older data for the same link). Items with **`published_at` older than `FEED_RETENTION_DAYS`** (default **30**) are **not written**, and after upsert any remaining rows older than that window are **deleted** so the table stays a bounded cache aligned with the app’s default “last 30 days” view.
 
 **Schedule:** `.github/workflows/ingest.yml` runs **every 4 hours** UTC on **weekdays** (`0 */4 * * 1-5`), **every 8 hours** on **weekends** (`0 */8 * * 0,6`; Sat–Sun in UTC), plus **workflow_dispatch** for manual runs. Add repository secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` under **Settings → Secrets and variables → Actions**.
 
