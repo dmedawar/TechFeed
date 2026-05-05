@@ -6,6 +6,7 @@ import {
   AI_HINTS,
   DEFAULT_INTEGRATION_KEYWORDS,
   DEFAULT_PROGRAMMING_SLUGS,
+  FIXED_SECTION_FEEDS,
   INTEGRATION_EXTRA_FEEDS,
   ROUTED_SOURCE_FEEDS,
 } from './feeds.config.mjs'
@@ -231,6 +232,34 @@ async function ingestProgramming(languageSlugs) {
   return out
 }
 
+/**
+ * @param {typeof FIXED_SECTION_FEEDS} specs
+ */
+async function ingestFixedSectionFeeds(specs) {
+  /** @type {NonNullable<ReturnType<typeof normalizeItem>>[]} */
+  const out = []
+  for (const spec of specs) {
+    try {
+      const feed = await parser.parseURL(spec.url)
+      for (const item of feed.items.slice(0, 100)) {
+        const row = normalizeItem(
+          item,
+          /** @type {'ai'|'tech'|'programming'|'integrations'} */ (spec.section),
+          spec.tags,
+          spec.source,
+        )
+        if (row) out.push(row)
+      }
+    } catch (e) {
+      console.warn(
+        `Fixed-section feed failed (${spec.url}):`,
+        /** @type {Error} */ (e).message,
+      )
+    }
+  }
+  return out
+}
+
 async function ingestDedicated(feedList, section, tagFn) {
   /** @type {NonNullable<ReturnType<typeof normalizeItem>>[]} */
   const out = []
@@ -290,6 +319,7 @@ async function ingestIntegrationFeeds(integrationMap) {
         let tags = detectIntegrationTags(text, integrationMap)
         if (!tags.length && src.source.includes('GitHub')) tags = ['github']
         if (!tags.length && src.source.includes('Firebase')) tags = ['firebase']
+        if (!tags.length && src.source.includes('Google Play')) tags = ['google-play']
         if (!tags.length) continue
         const row = normalizeItem(item, 'integrations', uniq(tags), src.source)
         if (row) out.push(row)
@@ -334,14 +364,21 @@ async function main() {
   const integrationMap = buildIntegrationKeywords(customs)
 
   console.log('Ingesting feeds (parallel batches)…')
-  const [aiRows, progRows, routedRows, integRows] = await Promise.all([
+  const [aiRows, progRows, routedRows, integRows, fixedRows] = await Promise.all([
     ingestDedicated(AI_FEEDS, 'ai', (_text) => ['ai-signal']),
     ingestProgramming(languageSlugs),
     ingestRoutedTechVerge(integrationMap),
     ingestIntegrationFeeds(integrationMap),
+    ingestFixedSectionFeeds(FIXED_SECTION_FEEDS),
   ])
 
-  const merged = [...aiRows, ...progRows, ...routedRows, ...integRows]
+  const merged = [
+    ...aiRows,
+    ...progRows,
+    ...routedRows,
+    ...integRows,
+    ...fixedRows,
+  ]
   console.log(`Upserting ${merged.length} items…`)
   const n = await upsertRows(merged)
   console.log(`Done. ${n} unique URLs processed.`)

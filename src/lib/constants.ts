@@ -59,6 +59,7 @@ export const DEFAULT_INTEGRATIONS: {
     label: 'App Store Connect',
     iconSlug: 'appstore',
   },
+  { slug: 'google-play', label: 'Google Play', iconSlug: 'googleplay' },
 ]
 
 export type TopicChip = {

@@ -13,6 +13,52 @@ export const TECH_FEEDS = [
 ]
 
 /**
+ * Official Google blogs (The Keyword + Developers). Routed by ingest heuristics into AI / tech / integrations.
+ */
+export const GOOGLE_OFFICIAL_FEEDS = [
+  { url: 'https://blog.google/rss.xml', source: 'Google · The Keyword' },
+  {
+    url: 'https://developers.googleblog.com/feeds/posts/default?alt=rss',
+    source: 'Google Developers Blog',
+  },
+]
+
+/**
+ * TLDR newsletter — community RSS mirrors (bullrich.dev). Official tldr.tech RSS often returns
+ * bot challenges for server-side fetch; these mirrors track the same editions.
+ */
+export const TLDR_NEWSLETTER_FEEDS = [
+  {
+    url: 'https://bullrich.dev/tldr-rss/tech.rss',
+    source: 'TLDR · Tech',
+    section: 'tech',
+    tags: ['tldr'],
+  },
+  {
+    url: 'https://bullrich.dev/tldr-rss/ai.rss',
+    source: 'TLDR · AI',
+    section: 'ai',
+    tags: ['ai-signal', 'tldr'],
+  },
+]
+
+/** Apple Newsroom Atom feed (official Apple company news; not the Apple News reader app). */
+export const APPLE_NEWSROOM_FEEDS = [
+  {
+    url: 'https://www.apple.com/newsroom/rss-feed.rss',
+    source: 'Apple Newsroom',
+    section: 'tech',
+    tags: ['apple', 'apple-newsroom'],
+  },
+]
+
+/** Feeds pinned to a single feed section (TLDR editions, Apple Newsroom, …). */
+export const FIXED_SECTION_FEEDS = [
+  ...TLDR_NEWSLETTER_FEEDS,
+  ...APPLE_NEWSROOM_FEEDS,
+]
+
+/**
  * Google News RSS (topic + search). Aggregates many publishers; complements direct feeds.
  * @see https://news.google.com/rss (undocumented but widely used URL shapes)
  */
@@ -65,6 +111,7 @@ export const LINKEDIN_OFFICIAL_FEEDS = [
 /** All feeds passed through AI / tech / integrations routing (title + body heuristics) */
 export const ROUTED_SOURCE_FEEDS = [
   ...TECH_FEEDS,
+  ...GOOGLE_OFFICIAL_FEEDS,
   ...CREDIBLE_WIRE_FEEDS,
   ...GOOGLE_NEWS_FEEDS,
   ...LINKEDIN_OFFICIAL_FEEDS,
@@ -76,6 +123,10 @@ export const INTEGRATION_EXTRA_FEEDS = [
   {
     url: 'https://firebase.blog/feeds/posts/default?alt=rss',
     source: 'Firebase Blog',
+  },
+  {
+    url: 'https://android-developers.googleblog.com/feeds/posts/default/-/Google%20Play?alt=rss',
+    source: 'Google Play · Android Developers Blog',
   },
 ]
 
@@ -101,6 +152,13 @@ export const DEFAULT_INTEGRATION_KEYWORDS = {
     'apple developer',
     'app review',
     'appstore',
+  ],
+  'google-play': [
+    'google play',
+    'play store',
+    'play console',
+    'android vitals',
+    'play billing',
   ],
 }
 
