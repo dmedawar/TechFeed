@@ -15,7 +15,7 @@ jobs:
   ingest:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -34,3 +34,13 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           FEED_RETENTION_DAYS: '30'
         run: npm run ingest
+
+      - name: Publish feed snapshot
+        run: |
+          git add public/feed-snapshot.json
+          if git diff --cached --quiet; then
+            echo "Feed snapshot unchanged"
+          else
+            git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Update feed snapshot from ingest"
+            git push
+          fi

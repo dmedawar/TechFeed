@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto'
+import { writeFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -307,9 +309,54 @@ function uniq(arr) {
 }
 
 async function fetchCustomTopics() {
+  if (!supabase) return []
   const { data, error } = await supabase.from('custom_topics').select('*')
   if (error) throw error
   return data ?? []
+}
+
+function stableSnapshotId(url) {
+  return `snap-${createHash('sha1').update(url).digest('hex').slice(0, 16)}`
+}
+
+/** Ship articles with the static site when Supabase is down or empty. */
+function writeFeedSnapshot(rows) {
+  const byUrl = new Map()
+  for (const row of rows) {
+    if (!row?.url) continue
+    byUrl.set(row.url, row)
+  }
+  const generatedAt = new Date().toISOString()
+  const items = [...byUrl.values()]
+    .map((row) => ({
+      id: stableSnapshotId(row.url),
+      title: row.title,
+      url: row.url,
+      summary: row.summary ?? null,
+      thumbnail_url: row.thumbnail_url ?? null,
+      section: row.section,
+      tags: row.tags ?? [],
+      source_name: row.source_name ?? null,
+      published_at: row.published_at,
+      created_at: row.published_at,
+      updated_at: generatedAt,
+    }))
+    .sort((a, b) => {
+      const byDate = Date.parse(b.published_at) - Date.parse(a.published_at)
+      if (byDate !== 0) return byDate
+      return b.id.localeCompare(a.id)
+    })
+  if (!items.length) {
+    console.warn('No items ingested; leaving public/feed-snapshot.json unchanged')
+    return 0
+  }
+  const file = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../public/feed-snapshot.json',
+  )
+  writeFileSync(file, JSON.stringify({ generated_at: generatedAt, items }))
+  console.log(`Wrote ${items.length} articles to public/feed-snapshot.json`)
+  return items.length
 }
 
 function buildIntegrationKeywords(customs) {
@@ -626,10 +673,13 @@ async function pruneFeedItemsRetention() {
 async function main() {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+  if (url && key) {
+    supabase = createClient(url, key)
+  } else {
+    console.warn(
+      'Supabase credentials missing; ingest will still write public/feed-snapshot.json',
+    )
   }
-  supabase = createClient(url, key)
 
   let supabaseHost = '(invalid url)'
   try {
@@ -644,7 +694,15 @@ async function main() {
   })
 
   console.log('Fetching custom topics…')
-  const customs = await fetchCustomTopics()
+  let customs = []
+  try {
+    customs = await fetchCustomTopics()
+  } catch (err) {
+    console.warn(
+      'Custom topics unavailable; using default topics:',
+      err?.message ?? err,
+    )
+  }
 
   const extraLanguages = customs
     .filter((c) => c.kind === 'language')
@@ -721,10 +779,23 @@ async function main() {
     )
   }
 
+  const snapshotted = writeFeedSnapshot(mergedForUpsert)
+  if (!supabase) {
+    console.log(`Done. Snapshot only (${snapshotted} articles).`)
+    return
+  }
+
   console.log(`Upserting ${mergedForUpsert.length} items…`)
-  const n = await upsertRows(mergedForUpsert)
-  console.log(`Done. ${n} unique URLs processed.`)
-  await pruneFeedItemsRetention()
+  try {
+    const n = await upsertRows(mergedForUpsert)
+    console.log(`Done. ${n} unique URLs processed.`)
+    await pruneFeedItemsRetention()
+  } catch (err) {
+    console.warn(
+      'Supabase write failed; the site will use public/feed-snapshot.json:',
+      err?.message ?? err,
+    )
+  }
 }
 
 /** Programmatic entry (e.g. Netlify background function). Sets env before calling. */
@@ -737,8 +808,13 @@ const invokedAsCli =
   path.resolve(process.argv[1] ?? '')
 
 if (invokedAsCli) {
-  main().catch((err) => {
-    console.error(err?.message ?? err)
-    process.exit(1)
-  })
+  main()
+    .then(() => {
+      // Supabase client can leave sockets open after a failed write.
+      process.exit(0)
+    })
+    .catch((err) => {
+      console.error(err?.message ?? err)
+      process.exit(1)
+    })
 }

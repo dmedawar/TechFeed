@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { feedDebug } from '@/lib/feedDebug'
+import { snapshotFeedPage, snapshotSearchPage } from '@/lib/feedSnapshot'
 import {
   GLOBAL_SEARCH_MIN_CHARS,
   normalizeGlobalSearchQuery,
@@ -13,6 +14,21 @@ export const isSupabaseConfigured = Boolean(url && anon)
 
 export const supabase: SupabaseClient | null =
   url && anon ? createClient(url, anon) : null
+
+/** Don't leave the feed on skeletons when the database host is gone. */
+const SUPABASE_QUERY_TIMEOUT_MS = 3500
+
+async function runSupabaseQuery<T extends { data: unknown; error: { message: string } | null }>(
+  query: { abortSignal: (signal: AbortSignal) => PromiseLike<T> },
+): Promise<T> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), SUPABASE_QUERY_TIMEOUT_MS)
+  try {
+    return await query.abortSignal(controller.signal)
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 /** Escape `%`, `_`, and `\` for Postgres `ILIKE` patterns. */
 function escapeIlikePattern(fragment: string): string {
@@ -28,16 +44,15 @@ export async function fetchFeedSearchPage(params: {
   publishedBefore: string | null
   from: number
   to: number
-}) {
+}): Promise<{ data: FeedItemRow[]; error: Error | null }> {
   if (!supabase) {
+    const data = await snapshotSearchPage(params)
     feedDebug('fetchFeedSearchPage', {
-      result: 'NOT_CONFIGURED',
+      result: 'snapshot (supabase not configured)',
+      rowCount: data.length,
       params,
     })
-    return {
-      data: [] as FeedItemRow[],
-      error: new Error('NOT_CONFIGURED'),
-    }
+    return { data, error: null }
   }
 
   const normalized = normalizeGlobalSearchQuery(params.search)
@@ -70,15 +85,25 @@ export async function fetchFeedSearchPage(params: {
     .order('id', { ascending: false })
     .range(params.from, params.to)
 
-  const { data, error } = await q
+  let data: FeedItemRow[] | null = null
+  let error: { message: string } | null = null
+  try {
+    const result = await runSupabaseQuery(q)
+    data = (result.data ?? null) as FeedItemRow[] | null
+    error = result.error
+  } catch (err) {
+    error = { message: err instanceof Error ? err.message : String(err) }
+  }
   const rows = (data ?? []) as FeedItemRow[]
   if (error) {
+    const fallback = await snapshotSearchPage(params)
     feedDebug('fetchFeedSearchPage', {
-      result: 'error',
+      result: 'snapshot (supabase error)',
       message: error.message,
+      rowCount: fallback.length,
       params,
     })
-    return { data: [], error: new Error(error.message) }
+    return { data: fallback, error: null }
   }
   feedDebug('fetchFeedSearchPage', {
     result: 'ok',
@@ -96,16 +121,15 @@ export async function fetchFeedPage(params: {
   publishedBefore: string | null
   from: number
   to: number
-}) {
+}): Promise<{ data: FeedItemRow[]; error: Error | null }> {
   if (!supabase) {
+    const data = await snapshotFeedPage(params)
     feedDebug('fetchFeedPage', {
-      result: 'NOT_CONFIGURED',
+      result: 'snapshot (supabase not configured)',
+      rowCount: data.length,
       params,
     })
-    return {
-      data: [] as FeedItemRow[],
-      error: new Error('NOT_CONFIGURED'),
-    }
+    return { data, error: null }
   }
 
   let q = supabase
@@ -136,15 +160,25 @@ export async function fetchFeedPage(params: {
     .order('id', { ascending: false })
     .range(params.from, params.to)
 
-  const { data, error } = await q
+  let data: FeedItemRow[] | null = null
+  let error: { message: string } | null = null
+  try {
+    const result = await runSupabaseQuery(q)
+    data = (result.data ?? null) as FeedItemRow[] | null
+    error = result.error
+  } catch (err) {
+    error = { message: err instanceof Error ? err.message : String(err) }
+  }
   const rows = (data ?? []) as FeedItemRow[]
   if (error) {
+    const fallback = await snapshotFeedPage(params)
     feedDebug('fetchFeedPage', {
-      result: 'error',
+      result: 'snapshot (supabase error)',
       message: error.message,
+      rowCount: fallback.length,
       params,
     })
-    return { data: [], error: new Error(error.message) }
+    return { data: fallback, error: null }
   }
   feedDebug('fetchFeedPage', {
     result: 'ok',

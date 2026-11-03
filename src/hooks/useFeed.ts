@@ -9,6 +9,7 @@ import {
   type PublishedBounds,
 } from '@/lib/dateRangeFilter'
 import { feedDebug } from '@/lib/feedDebug'
+import { snapshotFeedPage, snapshotSearchPage } from '@/lib/feedSnapshot'
 import {
   feedLaneKey,
   invalidateFeedLane,
@@ -144,6 +145,7 @@ export function useFeed(params: {
       dbExhaustedRef.current = false
       setHasMore(true)
 
+      let showedImmediate = false
       if (cached?.dbFirstPage?.length) {
         feedDebug('resetAndLoad cache hit', {
           laneKey,
@@ -153,9 +155,36 @@ export function useFeed(params: {
         })
         applyMerged(cached.dbFirstPage)
         setLoading(false)
+        showedImmediate = true
       } else {
-        feedDebug('resetAndLoad no cache', { laneKey, skipCache })
-        setLoading(true)
+        const preview = isGlobalSearch
+          ? await snapshotSearchPage({
+              search: effectiveSearch,
+              publishedAfter: params.dateBounds.publishedAfter,
+              publishedBefore: params.dateBounds.publishedBefore,
+              from: 0,
+              to: PAGE_SIZE - 1,
+            })
+          : await snapshotFeedPage({
+              section: params.section,
+              tagFilter: params.tagFilter,
+              publishedAfter: params.dateBounds.publishedAfter,
+              publishedBefore: params.dateBounds.publishedBefore,
+              from: 0,
+              to: PAGE_SIZE - 1,
+            })
+        if (preview.length) {
+          feedDebug('resetAndLoad snapshot preview', {
+            laneKey,
+            previewRows: preview.length,
+          })
+          applyMerged(preview)
+          setLoading(false)
+          showedImmediate = true
+        } else {
+          feedDebug('resetAndLoad no cache', { laneKey, skipCache })
+          setLoading(true)
+        }
       }
 
       if (skipCache) {
@@ -163,7 +192,7 @@ export function useFeed(params: {
       }
 
       const hadCache = Boolean(cached?.dbFirstPage?.length)
-      if (hadCache) setRefreshing(true)
+      if (showedImmediate) setRefreshing(true)
       try {
         const { data: dbData, error: err } = isGlobalSearch
           ? await fetchFeedSearchPage({
@@ -204,7 +233,7 @@ export function useFeed(params: {
           writeFeedLane(laneKey, dbData)
         }
       } finally {
-        if (hadCache) setRefreshing(false)
+        if (showedImmediate) setRefreshing(false)
         setLoading(false)
       }
     },
