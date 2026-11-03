@@ -95,7 +95,7 @@ async function ingestAnthropicNewsroom() {
         title,
         url,
         summary: null,
-        thumbnail_url: faviconForLink(url),
+        thumbnail_url: null,
         section: 'ai',
         tags: ['ai-signal'],
         source_name: 'Anthropic',
@@ -191,16 +191,6 @@ function pickThumb(item) {
   }
 
   return null
-}
-
-function faviconForLink(link) {
-  try {
-    const host = new URL(String(link)).hostname
-    if (!host) return null
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`
-  } catch {
-    return null
-  }
 }
 
 /** Pull ISO-like timestamps embedded in text (some feeds omit structured dates). */
@@ -415,7 +405,7 @@ function normalizeItem(item, section, tags, sourceName, feedMeta) {
     title,
     url: String(link).split('#')[0],
     summary,
-    thumbnail_url: pickThumb(item) || faviconForLink(link),
+    thumbnail_url: pickThumb(item),
     section,
     tags,
     source_name: sourceName,

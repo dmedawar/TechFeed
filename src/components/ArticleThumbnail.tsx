@@ -1,11 +1,14 @@
-import { useState } from 'react'
-import { preferredThumbnailSrc } from '@/lib/articleThumbnail'
+import { useEffect, useState } from 'react'
+import {
+  requestArticlePreview,
+  usableArticleImageUrl,
+} from '@/lib/articleThumbnail'
 import type { FeedItemRow } from '@/types'
 
-function Placeholder() {
+function Placeholder({ pending }: { pending: boolean }) {
   return (
     <div
-      className="h-full w-full bg-gradient-to-br from-[color:var(--color-surface-3)] via-[color:var(--color-surface-2)] to-[color:var(--color-surface-1)]"
+      className={`h-full w-full bg-gradient-to-br from-[color:var(--color-surface-3)] via-[color:var(--color-surface-2)] to-[color:var(--color-surface-1)] ${pending ? 'animate-pulse' : ''}`}
       aria-hidden
     />
   )
@@ -16,19 +19,33 @@ export function ArticleThumbnail({
 }: {
   item: Pick<FeedItemRow, 'url' | 'thumbnail_url'>
 }) {
-  const { primary, fallback } = preferredThumbnailSrc(item)
-  const [failedPrimary, setFailedPrimary] = useState(false)
-  const [failedFallback, setFailedFallback] = useState(false)
+  const stored = usableArticleImageUrl(item.thumbnail_url)
+  const [remote, setRemote] = useState<string | null>(null)
+  const [storedFailed, setStoredFailed] = useState(false)
+  const [remoteFailed, setRemoteFailed] = useState(false)
+  const [lookupDone, setLookupDone] = useState(false)
 
-  const src =
-    primary && !failedPrimary
-      ? primary
-      : fallback && !failedFallback
-        ? fallback
-        : null
+  const needsLookup = !stored || storedFailed
+
+  useEffect(() => {
+    if (!needsLookup) return
+    let cancelled = false
+    void requestArticlePreview(item.url).then((image) => {
+      if (cancelled) return
+      if (image && image !== stored) setRemote(image)
+      setLookupDone(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [item.url, needsLookup, stored])
+
+  const showStored = Boolean(stored) && !storedFailed
+  const showRemote = Boolean(remote) && !remoteFailed
+  const src = showStored ? stored : showRemote ? remote : null
 
   if (!src) {
-    return <Placeholder />
+    return <Placeholder pending={needsLookup && !lookupDone} />
   }
 
   return (
@@ -39,8 +56,8 @@ export function ArticleThumbnail({
       loading="lazy"
       decoding="async"
       onError={() => {
-        if (primary && !failedPrimary) setFailedPrimary(true)
-        else setFailedFallback(true)
+        if (showStored) setStoredFailed(true)
+        else setRemoteFailed(true)
       }}
     />
   )

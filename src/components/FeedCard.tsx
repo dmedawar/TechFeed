@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { ExternalLink } from 'lucide-react'
 import { ArticleThumbnail } from '@/components/ArticleThumbnail'
 import { SECTION_META } from '@/lib/constants'
+import { sourceBadgeLabel } from '@/lib/articleThumbnail'
 import { useArticleRead } from '@/hooks/useArticleRead'
 import type { FeedItemRow } from '@/types'
 
@@ -26,6 +27,7 @@ export function FeedCard({
   showSection?: boolean
 }) {
   const { isUnread, markOpened } = useArticleRead(item.id)
+  const sourceBadge = sourceBadgeLabel(item)
 
   return (
     <article
@@ -37,29 +39,34 @@ export function FeedCard({
       )}
     >
       <div className="flex gap-4 p-4 sm:gap-5 sm:p-5">
-        <a
-          href={item.url}
-          target="_blank"
-          rel="noreferrer noopener"
-          onClick={markOpened}
-          className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[color:var(--color-surface-3)] via-[color:var(--color-surface-2)] to-[color:var(--color-surface-1)] ring-1 ring-[color:var(--app-ring-subtle)] sm:h-[100px] sm:w-[100px]"
-          aria-hidden
-        >
-          <ArticleThumbnail
-            key={`${item.id}:${item.thumbnail_url ?? ''}`}
-            item={item}
-          />
-        </a>
+        <div className="flex w-[104px] shrink-0 flex-col gap-1.5 sm:w-[128px]">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noreferrer noopener"
+            onClick={markOpened}
+            className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-gradient-to-br from-[color:var(--color-surface-3)] via-[color:var(--color-surface-2)] to-[color:var(--color-surface-1)] ring-1 ring-[color:var(--app-ring-subtle)]"
+            aria-hidden
+          >
+            <ArticleThumbnail
+              key={`${item.id}:${item.thumbnail_url ?? ''}`}
+              item={item}
+            />
+          </a>
+          {sourceBadge ? (
+            <span
+              className="break-all rounded-md bg-[color:var(--app-muted-fill)] px-1.5 py-0.5 text-center text-[9px] font-medium leading-tight text-[color:var(--color-ink)] ring-1 ring-[color:var(--app-ring-subtle)]"
+              title={sourceBadge}
+            >
+              {sourceBadge}
+            </span>
+          ) : null}
+        </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-[color:var(--color-ink-muted)]">
             {showSection ? (
               <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-0.5 font-semibold uppercase tracking-wide text-accent-bright">
                 {SECTION_META[item.section].label}
-              </span>
-            ) : null}
-            {item.source_name ? (
-              <span className="rounded-full bg-[color:var(--app-muted-fill)] px-2 py-0.5 font-medium text-[color:var(--color-ink)]">
-                {item.source_name}
               </span>
             ) : null}
             {isUnread ? (
